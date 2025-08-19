@@ -1,0 +1,16 @@
+# Python generated files
+*__pycache__/
+*.pyc
+*.whl
+.python-version
+*.egg-info/
+.venv/
+
+# Other tools
+.ruff_cache/
+mprofile*
+
+# Data and config
+data/
+models/
+.env

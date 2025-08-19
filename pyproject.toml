@@ -1,0 +1,17 @@
+[project]
+name = "arc-tartiflette"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Méo Desbois-Renaudin", email = "meo-externe.desbois-renaudin@edf.fr" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+arc-tartiflette = "arc_tartiflette:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
