@@ -7,7 +7,12 @@ authors = [
     { name = "Méo Desbois-Renaudin", email = "meo-externe.desbois-renaudin@edf.fr" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pip-system-certs>=5.2",
+    "torch>=2.8.0",
+    "transformers>=4.55.2",
+    "trl>=0.21.0",
+]
 
 [project.scripts]
 arc-tartiflette = "arc_tartiflette:main"
