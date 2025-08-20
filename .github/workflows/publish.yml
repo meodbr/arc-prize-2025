@@ -10,16 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Docker
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker.io
-          sudo systemctl start docker
-          sudo systemctl enable docker
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Google Artifact Registry Build & Push
         uses: piotr-krusinski/action-google-artifact-registry@v1.0
         with:
