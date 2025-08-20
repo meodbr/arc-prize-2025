@@ -5,6 +5,7 @@
 .python-version
 *.egg-info/
 .venv/
+.python-version
 
 # Other tools
 .ruff_cache/
