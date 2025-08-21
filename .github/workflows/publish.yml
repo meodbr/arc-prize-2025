@@ -10,14 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Google Artifact Registry Build & Push
-        uses: piotr-krusinski/action-google-artifact-registry@v1.0
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Push Docker Image to Google Artifact Registry
+        uses: a94763075/push-to-gar-github-action@v0.3.3
         with:
-          google_project_id: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          google_artifact_registry_region: ${{ secrets.GOOGLE_CLOUD_REGION }}   # e.g., us-central1
-          google_artifact_registry_hostname: ${{ secrets.GOOGLE_CLOUD_REGION }}-docker.pkg.dev
-          google_artifact_registry_name: arc-tartiflette
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          dockerfile: ./Dockerfile
+          gcloud_service_key: ${{ secrets.GCP_SA_KEYY }}
+          project_id: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          registry: ${{ secrets.GOOGLE_CLOUD_REGION }}-docker.pkg.dev
+          repository: arc-tartiflette
           image_name: arc-app
-          tag_list: latest ${{ github.sha }}
+          image_tags: 'latest, main'
+          dockerfile: './Dockerfile'
