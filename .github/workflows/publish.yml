@@ -21,5 +21,5 @@ jobs:
           registry: ${{ secrets.GOOGLE_CLOUD_REGION }}-docker.pkg.dev
           repository: arc-tartiflette
           image_name: arc-app
-          image_tags: 'latest, main'
+          image_tags: 'latest,main'
           dockerfile: './Dockerfile'
