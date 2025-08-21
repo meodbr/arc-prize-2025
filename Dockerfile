@@ -25,5 +25,5 @@ RUN touch README.md
 COPY src ./src
 RUN uv sync --locked --no-dev --no-editable --no-cache-dir
 
-ENTRYPOINT ["uv", "run", "--no-dev", "--no-build", "--no-editable", "--no-sync", "arc-tartiflette"]
+ENTRYPOINT ["uv", "run", "--no-dev", "--no-build", "--no-editable", "--no-sync"]
 CMD ["python", "-m", "src.arc_tartiflette.train"]
