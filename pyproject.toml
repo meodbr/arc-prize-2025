@@ -4,16 +4,16 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "Méo Desbois-Renaudin", email = "meo-externe.desbois-renaudin@edf.fr" }
+    { name = "Méo Desbois-Renaudin", email = "meo.desbois@gmail.com" }
 ]
 requires-python = ">=3.10,<3.11"
 dependencies = [
-    "pip-system-certs>=5.2",
-    "pydantic>=2.11.7",
-    "pydantic-settings>=2.10.1",
-    "torch>=2.8.0",
-    "transformers>=4.55.2",
-    "trl>=0.21.0",
+    "pip-system-certs",
+    "pydantic",
+    "pydantic-settings",
+    "torch==2.4",
+    "transformers",
+    "trl",
 ]
 
 [project.scripts]
@@ -22,3 +22,6 @@ arc-tartiflette = "arc_tartiflette:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arc_tartiflette"]

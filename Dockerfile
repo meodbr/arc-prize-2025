@@ -1,28 +1,18 @@
-FROM us-docker.pkg.dev/deeplearning-platform-release/gcr.io/base-cu124.py310
+FROM us-docker.pkg.dev/deeplearning-platform-release/gcr.io/pytorch-cu124.2-4.py310
 USER root
 
 # Restrain user privileges
 WORKDIR /opt/app
 
-# Setup configuration
-ENV PATH="$PATH:/home/mmesi/.local/bin"
-ENV UV_LINK_MODE=copy \
-    UV_COMPILE_BYTECODE=1 \
-    UV_PYTHON_DOWNLOADS=never \
-    UV_NO_CACHE=1
-
-# Install uv
-RUN pip install --upgrade --no-cache-dir uv==0.6.16
+RUN pip install --no-cache-dir --upgrade pip
 
 # Install dependencies
 COPY pyproject.toml ./pyproject.toml
-COPY uv.lock ./uv.lock
-RUN uv sync --locked --no-dev --no-install-project --no-cache-dir
 
 # Add sources and install project
 RUN touch README.md
 COPY src ./src
-RUN uv sync --locked --no-dev --no-editable --no-cache-dir
+RUN pip install --no-cache-dir .
 
-ENTRYPOINT ["uv", "run", "--no-dev", "--no-build", "--no-editable", "--no-sync"]
-CMD ["python", "-m", "src.arc_tartiflette.train"]
+ENTRYPOINT ["python"]
+CMD ["-m", "arc_tartiflette.train"]
