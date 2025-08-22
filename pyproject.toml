@@ -9,12 +9,9 @@ authors = [
 requires-python = ">=3.10,<3.11"
 dependencies = [
     "pip-system-certs>=4.0",
-    "transformers>=4.40",
+    "transformers",
     "trl",
     "torch==2.4",
-    "fsspec==2025.3.0",
-    "pydantic==1.10.22",
-    "datasets>=3"
 ]
 
 [project.scripts]
