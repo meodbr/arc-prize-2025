@@ -29,3 +29,5 @@ curl -X POST \
   -H "Content-Type: application/json; charset=utf-8" \
   -d @"$CONFIG_FILE" \
   "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/customJobs"
+
+gcloud ai custom-jobs stream-logs $CONFIG_NAME --project=$PROJECT_ID --region=$REGION
