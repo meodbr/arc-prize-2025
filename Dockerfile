@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM us-docker.pkg.dev/deeplearning-platform-release/gcr.io/base-cu124.py310
 USER root
 
 # Restrain user privileges
@@ -10,7 +10,6 @@ ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1
-ENV DOCLING_ARTIFACTS_PATH=/home/mmesi/.cache/docling/models
 
 # Install uv
 RUN pip install --upgrade --no-cache-dir uv==0.6.16
