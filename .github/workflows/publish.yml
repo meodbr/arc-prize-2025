@@ -13,6 +13,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Free disk space
+        run: |
+          chmod a+x scripts/runner/free_disk_space.sh
+          bash scripts/runner/free_disk_space.sh
+
       - name: Push Docker Image to Google Artifact Registry
         uses: a94763075/push-to-gar-github-action@v0.3.3
         with:
