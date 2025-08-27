@@ -3,9 +3,12 @@ from datasets import load_dataset
 from trl import SFTConfig, SFTTrainer, setup_chat_format
 import torch
 
+from arc_tartiflette.utils.gpu_availability import print_gpu_availability
+
+print_gpu_availability()
+
 # Set device
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 # Configure model and tokenizer
 model_name = "HuggingFaceTB/SmolLM2-135M"
