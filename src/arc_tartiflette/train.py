@@ -60,7 +60,7 @@ print("Generate")
 pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
 
 # Test prompt
-prompt = "Once upon a time,"
+prompt = "Once upon a time, the"
 output = pipe(prompt, max_new_tokens=100, do_sample=True, temperature=0.7)
 
 print(output[0]["generated_text"])
