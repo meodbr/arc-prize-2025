@@ -47,7 +47,6 @@ rm -rf /usr/share/dotnet/
 
 # Another source :
 df -h
-du -h /
 echo "Now moving to another source"
 
 sudo docker rmi $(docker image ls -aq) >/dev/null 2>&1 || true
@@ -76,4 +75,3 @@ sudo apt-get autoremove -y >/dev/null 2>&1
 sudo apt-get autoclean -y >/dev/null 2>&1
 echo "some packages purged"
 df -h
-du -h /
