@@ -2,6 +2,7 @@ import json
 import re
 import os
 from arc_tartiflette.utils import constants
+from datasets import Dataset
 
 def load_arc_challenges(filename: str):
     with open(filename, 'r') as f:
@@ -45,3 +46,54 @@ def load_challenges_kaggle_format(input_dir):
 
     return out_dict
 
+def grid_to_str(grid: list[list[int]]) -> str:
+    return "\n".join(["".join([str(c) for c in row]) for row in grid])
+
+def flatten_dataset(dataset: dict) -> list[dict]:
+    data = []
+
+    for task_name, task_data in dataset.items():
+        # Prepare few-shot context from examples
+        context = ""
+        for ex in task_data["train"]:
+            ex_input_str = grid_to_str(ex["input"])
+            ex_output_str = grid_to_str(ex["output"])
+            context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
+
+        # Prepare test example
+        for ex in task_data["test"]:
+            ex_input_str = grid_to_str(ex["input"])
+            ex_output_str = grid_to_str(ex["output"])
+            context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
+
+        # Combine into single sequence
+        data.append({"text": context})
+    return data
+
+def dict_to_transformers_dataset(dataset: dict) -> Dataset:
+    return Dataset.from_list(flatten_dataset(dataset))
+
+
+if __name__ == "__main__":
+    dataset = {
+        "gqzfqf": {
+            "train": [
+                {
+                    "input": [[1, 2], [3, 4]],
+                    "output": [[1, 2], [3, 4]],
+                },
+                {
+                    "input": [[1, 2], [3, 4]],
+                    "output": [[1, 2], [3, 4]],
+                }
+            ],
+            "test": [
+                {
+                    "input": [[1, 2], [3, 4]],
+                    "output": [[1, 2], [3, 4]],
+                }
+            ]
+        }
+    }
+    flattened_data = flatten_dataset(dataset)
+    print(flattened_data)
