@@ -40,6 +40,7 @@ training_args = SFTConfig(
     eval_steps=50,
     bf16=use_bf16,
     fp16=not use_bf16,
+    push_to_hub=True,
 )
 
 # Initialize trainer
