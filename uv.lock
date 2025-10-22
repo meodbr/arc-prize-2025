@@ -103,6 +103,7 @@ name = "arc-tartiflette"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "huggingface-hub" },
     { name = "torch" },
     { name = "transformers" },
     { name = "trl" },
@@ -110,6 +111,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "huggingface-hub", specifier = ">=0.34.4" },
     { name = "torch", specifier = ">=2.4,<2.7" },
     { name = "transformers" },
     { name = "trl" },

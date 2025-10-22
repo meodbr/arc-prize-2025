@@ -19,6 +19,7 @@ tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_na
 
 # Load dataset
 dataset = load_dataset("HuggingFaceTB/smoltalk", "apigen-80k")
+dataset.push_to_hub("meo-des/smoltalk_test")
 
 model, tokenizer = setup_chat_format(model=model, tokenizer=tokenizer)
 
@@ -62,5 +63,7 @@ pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
 # Test prompt
 prompt = "Once upon a time, the"
 output = pipe(prompt, max_new_tokens=100, do_sample=True, temperature=0.7)
+
+model.push_to_hub("meo-des/smolvlm_smoltalk")
 
 print(output[0]["generated_text"])
