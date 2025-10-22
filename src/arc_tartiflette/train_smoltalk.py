@@ -27,6 +27,8 @@ dataset.push_to_hub("meo-des/smoltalk_test")
 
 model, tokenizer = setup_chat_format(model=model, tokenizer=tokenizer)
 
+use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
+
 training_args = SFTConfig(
     output_dir="./sft_output",
     max_steps=10,
@@ -36,8 +38,8 @@ training_args = SFTConfig(
     save_steps=100,
     eval_strategy="steps",
     eval_steps=50,
-    bf16=torch.cuda.is_bf16_supported(),
-    fp16=not torch.cuda.is_bf16_supported(),
+    bf16=use_bf16,
+    fp16=not use_bf16,
 )
 
 # Initialize trainer

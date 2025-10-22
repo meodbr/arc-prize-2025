@@ -49,7 +49,7 @@ use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else Fals
 
 # Define training arguments using Transformers
 training_args = TrainingArguments(
-    output_dir="./data/models",
+    output_dir="./data/models/smolvlm_arc_kaggle_without_trl",
     num_train_epochs=3,
     per_device_train_batch_size=4,
     per_device_eval_batch_size=4,

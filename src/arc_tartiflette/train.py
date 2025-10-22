@@ -41,9 +41,11 @@ def tokenize_function(example):
 
 tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
 
+use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
+
 # Define training arguments using TRL's SFTConfig
 training_args = SFTConfig(
-    output_dir="./data/models",
+    output_dir="./data/models/smolvlm_arc_kaggle_with_trl",
     num_train_epochs=3,
     per_device_train_batch_size=4,
     per_device_eval_batch_size=4,
@@ -59,8 +61,8 @@ training_args = SFTConfig(
     push_to_hub=True,
 
     # Precision config
-    bf16=torch.cuda.is_bf16_supported(),  # use bf16 if GPU supports it
-    fp16=not torch.cuda.is_bf16_supported(),  # fallback to fp16 if bf16 not supported
+    bf16=use_bf16,  # use bf16 if GPU supports it
+    fp16=not use_bf16,  # fallback to fp16 if bf16 not supported
 )
 
 # Define TRL SFTTrainer
