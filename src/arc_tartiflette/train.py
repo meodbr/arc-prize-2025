@@ -9,7 +9,7 @@ import os
 from arc_tartiflette.utils.gpu_availability import print_gpu_availability
 from arc_tartiflette.utils import load
 
-hf.login(os.environ.get("HUGGING_FACE_TOKEN", ""))
+hf.login(os.environ.get("HUGGING_FACE_TOKEN"))
 
 print_gpu_availability()
 

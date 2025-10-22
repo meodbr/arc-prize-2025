@@ -63,8 +63,11 @@ def flatten_dataset(dataset: dict) -> list[dict]:
         # Prepare test example
         for ex in task_data["test"]:
             ex_input_str = grid_to_str(ex["input"])
-            ex_output_str = grid_to_str(ex["output"])
-            context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
+            if "output" in ex.keys():
+                ex_output_str = grid_to_str(ex["output"])
+                context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
+            else:
+                context += f"Input:\n{ex_input_str}\n\n"
 
         # Combine into single sequence
         data.append({"text": context})
