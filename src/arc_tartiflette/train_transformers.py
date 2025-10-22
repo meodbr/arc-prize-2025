@@ -7,7 +7,7 @@ import huggingface_hub as hf
 import os
 
 from arc_tartiflette.utils.gpu_availability import print_gpu_availability
-from arc_tartiflette.utils import load
+from arc_tartiflette.utils import load, constants
 
 print(os.environ.get("HUGGING_FACE_TOKEN", ""))
 hf.login(token=os.environ.get("HUGGING_FACE_TOKEN", ""))
@@ -24,9 +24,10 @@ model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model
 )
 tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
 
+dataset_id = constants.HF_USER + "/" + os.environ.get("HF_DATASET", "arc-agi-2_kaggle_flattened")
 
 # Get dataset
-hf_dataset = load_dataset("meo-des/arc-agi-2_kaggle_prepared", split="train")
+hf_dataset = load_dataset(dataset_id, split="train")
 
 dataset_dict = DatasetDict({
     "train": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)))),

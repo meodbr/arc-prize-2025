@@ -5,3 +5,5 @@ ARC_INPUT_FILES = {
     "eval_solutions": "arc-agi_evaluation_solutions.json",
     "test_challenges": "arc-agi_test_challenges.json",
 }
+
+HF_USER = "meo-des"
