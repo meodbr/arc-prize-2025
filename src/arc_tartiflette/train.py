@@ -34,8 +34,9 @@ dataset_dict = DatasetDict({
 # ---- TOKENIZE ----
 tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
 tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+max_length = int(os.environ.get("TOKENIZER_MAX_LENGTH", "2048"))
 def tokenize_function(example):
-    return tokenizer(example["text"], truncation=True, max_length=2048, padding="max_length")
+    return tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length")
 tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
 
 
