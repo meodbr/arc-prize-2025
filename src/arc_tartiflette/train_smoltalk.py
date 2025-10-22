@@ -30,7 +30,7 @@ model, tokenizer = setup_chat_format(model=model, tokenizer=tokenizer)
 use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
 
 training_args = SFTConfig(
-    output_dir="./sft_output",
+    output_dir="./data/models/somllm2_smoltalk",
     max_steps=10,
     per_device_train_batch_size=4,
     learning_rate=5e-5,
