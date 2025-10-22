@@ -52,6 +52,7 @@ def print_gpu_availability():
             print(f"Device {i}: {torch.cuda.get_device_name(i)}")
             print("  Memory allocated:", torch.cuda.memory_allocated(i))
             print("  Memory reserved:", torch.cuda.memory_reserved(i))
+            print("  Is bf16 supported:", torch.cuda.is_bf16_supported())
     except ImportError:
         print("PyTorch not installed")
 
