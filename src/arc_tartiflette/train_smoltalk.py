@@ -2,10 +2,14 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from datasets import load_dataset
 from trl import SFTConfig, SFTTrainer, setup_chat_format
 import torch
+import huggingface_hub as hf
 
 from arc_tartiflette.utils.gpu_availability import print_gpu_availability
+from arc_tartiflette.config.settings import settings
 
 print_gpu_availability()
+
+hf.login(settings.HUGGING_FACE_TOKEN)
 
 # Set device
 device = "cuda" if torch.cuda.is_available() else "cpu"

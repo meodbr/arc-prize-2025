@@ -7,6 +7,7 @@ import sys
 class Settings(BaseSettings):
     GOOGLE_CLOUD_PROJECT: str = Field(..., description="ID de projet GCP")
     GOODLE_CLOUD_REGION: str = Field(..., description="Région GCP")
+    HUGGING_FACE_TOKEN: str = Field(..., description="Hugging face api key")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

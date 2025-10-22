@@ -3,9 +3,13 @@ from datasets import load_dataset
 from trl import SFTConfig, SFTTrainer, setup_chat_format
 import torch
 from datasets import Dataset, DatasetDict
+import huggingface_hub as hf
 
 from arc_tartiflette.utils.gpu_availability import print_gpu_availability
 from arc_tartiflette.utils import load
+from arc_tartiflette.config.settings import settings
+
+hf.login(token=settings.HUGGING_FACE_TOKEN)
 
 print_gpu_availability()
 
@@ -24,6 +28,9 @@ tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_na
 input_dir = "data/kaggle_working"
 dict_dataset = load.load_challenges_kaggle_format(input_dir)
 hf_dataset = load.dict_to_transformers_dataset(dict_dataset)
+
+hf_dataset.push_to_hub("meo-des/kaggle_input_prepared")
+
 dataset_dict = DatasetDict({
     "train": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)))),
     "test": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)), len(hf_dataset)))
