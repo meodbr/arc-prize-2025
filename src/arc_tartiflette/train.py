@@ -16,7 +16,7 @@ gpu_availability.print_gpu_availability()
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ---- MODEL ----
-model_name = os.environ.get("BASE_MODEL","HuggingFaceTB/SmolLM2-135M")
+model_name = os.environ.get("HF_BASE_MODEL","HuggingFaceTB/SmolLM2-135M")
 model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name).to(
     device
 )
@@ -40,7 +40,7 @@ tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
 
 
 # ---- TRAIN and PUSH ----
-output_model_name = os.environ.get("OUTPUT_MODEL", utils.default_output_model_name(model_name, dataset_id))
+output_model_name = os.environ.get("HF_OUTPUT_MODEL", utils.default_output_model_name(model_name, dataset_id))
 use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
 
 train_method = os.environ.get("TRAIN_METHOD", "default")

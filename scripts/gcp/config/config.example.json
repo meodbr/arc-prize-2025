@@ -16,6 +16,26 @@
                         {
                             "name": "HUGGING_FACE_TOKEN",
                             "value": "<your-hf-token>"
+                        },
+                        {
+                            "name": "HF_BASE_MODEL",
+                            "value": ""
+                        },
+                        {
+                            "name": "HF_OUTPUT_MODEL",
+                            "value": ""
+                        },
+                        {
+                            "name": "HF_DATASET",
+                            "value": ""
+                        },
+                        {
+                            "name": "HF_USER",
+                            "value": ""
+                        },
+                        {
+                            "name": "TRAIN_METHOD",
+                            "value": "<transformers|trl>"
                         }
                     ]
                 }
