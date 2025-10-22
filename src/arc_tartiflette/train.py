@@ -1,88 +1,58 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from datasets import load_dataset
-from trl import SFTConfig, SFTTrainer, setup_chat_format
 import torch
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_dataset
 import huggingface_hub as hf
 import os
 
-from arc_tartiflette.utils.gpu_availability import print_gpu_availability
-from arc_tartiflette.utils import load, constants
+from arc_tartiflette.utils import utils, constants, gpu_availability
+from arc_tartiflette.training.train_transformers import train_transformers
+from arc_tartiflette.training.train_trl import train_trl
 
-hf.login(os.environ.get("HUGGING_FACE_TOKEN"))
+hf.login(token=os.environ.get("HUGGING_FACE_TOKEN"))
 
-print_gpu_availability()
+gpu_availability.print_gpu_availability()
 
 # Set device
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Configure model and tokenizer
-model_name = "HuggingFaceTB/SmolLM2-135M"
+# ---- MODEL ----
+model_name = os.environ.get("BASE_MODEL","HuggingFaceTB/SmolLM2-135M")
 model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name).to(
     device
 )
-tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
 
+
+# ---- DATASET ----
 dataset_id = constants.HF_USER + "/" + os.environ.get("HF_DATASET", "arc-agi-2_kaggle_flattened")
-
-# Get dataset
 hf_dataset = load_dataset(dataset_id, split="train")
-
 dataset_dict = DatasetDict({
     "train": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)))),
     "test": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)), len(hf_dataset)))
 })
 
-def tokenize_function(example):
-    return tokenizer(example["text"], truncation=True, padding="longest")
 
+# ---- TOKENIZE ----
+tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
+tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+def tokenize_function(example):
+    return tokenizer(example["text"], truncation=True, max_length=2048, padding="max_length")
 tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
 
+
+# ---- TRAIN and PUSH ----
+output_model_name = os.environ.get("OUTPUT_MODEL", utils.default_output_model_name(model_name, dataset_id))
 use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
 
-# Define training arguments using TRL's SFTConfig
-training_args = SFTConfig(
-    output_dir="./data/models/smollm2_arc_kaggle_with_trl",
-    num_train_epochs=3,
-    per_device_train_batch_size=4,
-    per_device_eval_batch_size=4,
-    gradient_accumulation_steps=2,
-    evaluation_strategy="epoch",
-    save_strategy="epoch",
-    logging_steps=50,
-    learning_rate=5e-5,
-    warmup_ratio=0.1,
-    lr_scheduler_type="linear",
-    weight_decay=0.01,
-    report_to="none",
-    push_to_hub=True,
+train_method = os.environ.get("TRAIN_METHOD", "default")
+match train_method:
+    case "transformers":
+        model = train_transformers(model, tokenized_datasets, tokenizer, output_model=output_model_name)
+    case "trl":
+        model = train_trl(model, tokenized_datasets, tokenizer, output_model=output_model_name)
+    case _:
+        model = train_transformers(model, tokenized_datasets, tokenizer, output_model=output_model_name)
 
-    # Precision config
-    bf16=use_bf16,  # use bf16 if GPU supports it
-    fp16=not use_bf16,  # fallback to fp16 if bf16 not supported
-)
-
-# Define TRL SFTTrainer
-trainer = SFTTrainer(
-    model=model,
-    args=training_args,
-    tokenizer=tokenizer,
-    train_dataset=tokenized_datasets["train"],
-    eval_dataset=tokenized_datasets["test"],
-    dataset_text_field="text",
-    packing=False,
-)
-
-# Start training
-print("Train")
-trainer.train()
-
-# Eval
-print("Eval")
-results = trainer.evaluate()
-print(results)
-
-# Generate text
+# ---- TEST generation ----
 print("Generate")
 
 # Create inference pipeline

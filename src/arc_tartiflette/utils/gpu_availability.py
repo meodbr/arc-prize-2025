@@ -56,11 +56,12 @@ def print_gpu_availability():
     except ImportError:
         print("PyTorch not installed")
 
-    print("\n", "="*40, "CUDA / TENSORFLOW INFO", "="*40)
-    try:
-        import tensorflow as tf
-        print("TensorFlow version:", tf.__version__)
-        print("Built with CUDA:", tf.test.is_built_with_cuda())
-        print("GPU devices:", tf.config.list_physical_devices('GPU'))
-    except ImportError:
-        print("TensorFlow not installed")
+    # print("\n", "="*40, "CUDA / TENSORFLOW INFO", "="*40)
+    # try:
+    #     import tensorflow as tf
+    #     print("TensorFlow version:", tf.__version__)
+    #     print("Built with CUDA:", tf.test.is_built_with_cuda())
+    #     print("GPU devices:", tf.config.list_physical_devices('GPU'))
+    #     pass
+    # except ImportError:
+    #     print("TensorFlow not installed")
