@@ -26,7 +26,7 @@ tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_na
 
 
 # Get dataset
-hf_dataset = load_dataset("meo-des/arc-agi-2_kaggle_train_prepared")
+hf_dataset = load_dataset("meo-des/arc-agi-2_kaggle_prepared", split="train")
 
 dataset_dict = DatasetDict({
     "train": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)))),
