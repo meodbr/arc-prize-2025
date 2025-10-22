@@ -24,7 +24,7 @@ jobs:
           gcloud_service_key: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           registry: ${{ secrets.GOOGLE_CLOUD_REGION }}-docker.pkg.dev
-          repository: arc-tartiflette
-          image_name: arc-app
+          repository: arc-ttf-arr
+          image_name: arc-ttf-train
           image_tags: 'latest,main'
           dockerfile: './Dockerfile'
