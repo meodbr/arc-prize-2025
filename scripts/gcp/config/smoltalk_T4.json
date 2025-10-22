@@ -10,7 +10,7 @@
                 },
                 "replicaCount": 1,
                 "containerSpec": {
-                    "imageUri": "us-central1-docker.pkg.dev/arc-ttf/arc-ttf-arr/arc-ttf-train:main",
+                    "imageUri": "europe-west4-docker.pkg.dev/arc-ttf/arc-ttf-arr/arc-ttf-train:main",
                     "args": "-m arc-tartiflette.train_smoltalk"
                 }
             }

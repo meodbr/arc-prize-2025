@@ -2,9 +2,13 @@
 
 set -euo pipefail
 
+set -a
+source .env
+set +a
+
 # Variables
-PROJECT_ID="tartiflette-469509"
-REGION="us-central1"
+PROJECT_ID=$GOOGLE_CLOUD_PROJECT
+REGION=$GOOGLE_CLOUD_REGION
 
 # Check for config name argument
 if [ $# -ne 1 ]; then
