@@ -4,6 +4,9 @@ import subprocess
 import sys
 
 def print_gpu_availability():
+    """
+    Print detailed information about the system and GPU availability.
+    """
     print("="*40, "SYSTEM INFO", "="*40)
     print("Python version:", sys.version)
     print("Platform:", platform.platform())
@@ -65,3 +68,23 @@ def print_gpu_availability():
     #     pass
     # except ImportError:
     #     print("TensorFlow not installed")
+
+def estimate_vram_usage(model, batch_size: int, use_bf16: bool, seq_length: int) -> float:
+    """
+    Estimate VRAM usage in GB for training a model.
+    """
+    param_size_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
+    buffer_size_bytes = sum(b.numel() * b.element_size() for b in model.buffers())
+    total_model_size_bytes = param_size_bytes + buffer_size_bytes
+
+    dtype_multiplier = 2 if use_bf16 else 4
+
+    activation_size_bytes = batch_size * seq_length * model.config.hidden_size * dtype_multiplier
+
+    optimizer_overhead_bytes = total_model_size_bytes * 2
+
+    total_vram_bytes = total_model_size_bytes + activation_size_bytes + optimizer_overhead_bytes
+
+    total_vram_gb = total_vram_bytes / (1024 ** 3)
+
+    return round(total_vram_gb, 2)
