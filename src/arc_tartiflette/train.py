@@ -43,7 +43,9 @@ def train():
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
     max_length = int(os.environ.get("TOKENIZER_MAX_LENGTH", "2048"))
     def tokenize_function(example):
-        return tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length")
+        tokenized = tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length")
+        tokenized["labels"] = tokenized["input_ids"].copy()
+        return tokenized
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
     print("---- Dataset tokenized. ----")
     print("Tokenized dataset max length:", max(len(x['input_ids']) for x in tokenized_datasets['train']))
