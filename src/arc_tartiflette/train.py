@@ -26,17 +26,17 @@ def train():
 
     # ---- DATASET ----
     dataset_id = constants.HF_USER + "/" + os.environ.get("HF_DATASET", "arc-agi-2_kaggle_flattened")
-    hf_dataset = load_dataset(dataset_id, split="train")
+    hf_dataset = load_dataset(dataset_id)
     dataset_dict = DatasetDict({
-        "train": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)))),
-        "test": hf_dataset.shuffle(seed=42).select(range(int(0.8*len(hf_dataset)), len(hf_dataset)))
+        "train": hf_dataset["train"],
+        "eval": hf_dataset["eval"],
     })
     print(f"---- Dataset {dataset_id} loaded. ----")
-    print("Dataset average text length:", sum(len(x['text']) for x in dataset_dict['train'])/len(dataset_dict['train']))
-    print(f"Dataset max_length: {max(len(x['text']) for x in dataset_dict['train'])}")
-
+    # print("Dataset average text length:", sum(len(x['text']) for x in dataset_dict['train'])/len(dataset_dict['train']))
+    # print(f"Dataset max_length: {max(len(x['text']) for x in dataset_dict['train'])}")
 
     # ---- TOKENIZE ----
+    print("Tokenizing dataset...")
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
     max_length = int(os.environ.get("TOKENIZER_MAX_LENGTH", "2048"))
@@ -46,8 +46,8 @@ def train():
         return tokenized
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
     print("---- Dataset tokenized. ----")
-    print("Tokenized dataset max length:", max(len(x['input_ids']) for x in tokenized_datasets['train']))
-    print("Tokenized dataset average length:", sum(len(x['input_ids']) for x in tokenized_datasets['train'])/len(tokenized_datasets['train']))
+    # print("Tokenized dataset max length:", max(len(x['input_ids']) for x in tokenized_datasets['train']))
+    # print("Tokenized dataset average length:", sum(len(x['input_ids']) for x in tokenized_datasets['train'])/len(tokenized_datasets['train']))
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
 
 
