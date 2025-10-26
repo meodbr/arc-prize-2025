@@ -11,23 +11,23 @@ class LMSolver(Solver):
     def __init__(self, model_name: str):
         self.model_name = model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", trust_remote_code=True)
 
     def solve(self, task: dict, logs="") -> list[list[int]]:
         text = load.flatten_task(task, prompt=True)
-        inputs = self.tokenizer(text, return_tensors="pt")
+        inputs = self.tokenizer(text, return_tensors="pt").to(self.model.device)
 
         outputs = self.model.generate(
             **inputs, 
             max_new_tokens=1060, 
-            early_stopping=True,
             do_sample=True,
             top_p=0.9,
             temperature=0.8,
+            eos_token_id=[self.tokenizer.eos_token_id, 10219, 42], # also stop at "Input", ":"
         )
         outputs = outputs[:, inputs.input_ids.shape[1]:]  # Remove input prompt
         output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        print("Model output text:" + output_text)
+        print(output_text)
         try:
             return self.extract_output_from_text(output_text)
         except Exception as e:
