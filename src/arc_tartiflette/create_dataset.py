@@ -41,15 +41,15 @@ def neoneye_augment_and_push(path_tuples: list, output_name: str="meo-des/arc-ag
     for dataset_name, dataset in dict_datasets.items():
         print(f"  Augmenting dataset: {dataset_name} with {len(dataset)} tasks.")
         dataset = load.augment_dict(dataset, augment_types=["rot_flip", "color", "order"])
-        print(f"    Augmented dataset now has {len(dataset)} tasks.")
+        print(f"  Augmented dataset now has {len(dataset)} tasks.")
         hf_dataset = load.dict_to_transformers_dataset(dataset)
         datasetdict[dataset_name] = hf_dataset
 
-    hf_concatatenated = concatenate_datasets(list(datasetdict.values()))
+    hf_concatenated = concatenate_datasets(list(datasetdict.values()))
     hf_datasetdict = DatasetDict({
-        "train": hf_concatatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatatenated)))),
-        "eval": hf_concatatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatatenated)), int(0.9*len(hf_concatatenated)))),
-        "test": hf_concatatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatatenated)), len(hf_concatatenated))),
+        "train": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)))),
+        "eval": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)), int(0.9*len(hf_concatenated)))),
+        "test": hf_concatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatenated)), len(hf_concatenated))),
     })
     hf_datasetdict.push_to_hub(output_name)
 
