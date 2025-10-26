@@ -9,8 +9,6 @@ from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
 
 def train():
-    hf.login(token=os.environ.get("HUGGING_FACE_TOKEN"))
-
     gpu_availability.print_gpu_availability()
 
     # Set device
@@ -67,11 +65,11 @@ def train():
     print(f"Estimated time per epoch: {utils.estimate_time_per_epoch(model, batch_size, use_bf16, max_length, len(tokenized_datasets['train']))/60:.2f} minutes")
     match train_method:
         case "transformers":
-            model = train_transformers(model, tokenized_datasets, tokenizer, output_model=output_model_name)
+            train_transformers(model, tokenized_datasets, tokenizer, output_model=output_model_name)
         case "trl":
-            model = train_trl(model, tokenized_datasets, tokenizer, output_model=output_model_name)
+            train_trl(model, tokenized_datasets, tokenizer, output_model=output_model_name)
         case _:
-            model = train_transformers(model, tokenized_datasets, tokenizer, output_model=output_model_name)
+            train_transformers(model, tokenized_datasets, tokenizer, output_model=output_model_name)
 
     # ---- TEST generation ----
     print("Generate")

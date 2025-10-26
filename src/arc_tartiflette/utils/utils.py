@@ -1,3 +1,6 @@
+import huggingface_hub as hf
+import os
+
 import arc_tartiflette.utils.gpu_availability as gpu_availability
 
 def default_output_model_name(base_model: str, dataset: str):
@@ -18,3 +21,8 @@ def estimate_time_per_epoch(model, batch_size: int, use_bf16: bool, seq_length: 
     time_per_batch = base_time_per_batch * time_multiplier
     num_batches = dataset_size / batch_size
     return time_per_batch * num_batches
+
+def hf_login():
+    hf.login(token=os.environ.get("HUGGING_FACE_TOKEN"))
+
+hf_login()

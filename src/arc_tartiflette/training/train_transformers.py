@@ -18,7 +18,7 @@ def train_transformers(
     gradient_accumulation_steps = int(os.environ.get("GRAD_ACC_STEPS", "2"))
     gradient_checkpointing = os.environ.get("GRAD_CHPT", "true").lower() == "true"
     learning_rate = float(os.environ.get("LR", "5e-5"))
-    num_train_epochs = int(os.environ.get("NUM_EPOCHS", "3"))
+    num_train_epochs = float(os.environ.get("NUM_EPOCHS", "3"))
 
 
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False

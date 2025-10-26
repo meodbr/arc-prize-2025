@@ -21,6 +21,7 @@ class SolverRunCard:
         self.num_tests: int                  = 0
         self.num_tasks: int                  = 0
         self.summary: str                    = ""
+        self.logs: str                       = ""
 
 class Solver:
     """
@@ -73,12 +74,24 @@ class Solver:
         tests = task["test"]
         every_test_solved = True
         results = []
-        for _, test in enumerate(tests):
+        for i, test in enumerate(tests):
             # Solving task
-            result = self.solve(
-                train_dict=task["train"],
-                test_grid=test["input"],
-            )
+            task_sent = {
+                "train": task["train"],
+                "test": [test],
+            }
+            try:
+                logs = ""
+                result = self.solve(
+                    task=task_sent,
+                    logs=logs,
+                )
+                if logs:
+                    card.logs += f"Task {task_name}, test {i} logs:\n{logs}\n"
+            except Exception as e:
+                result = None
+                card.logs += f"Task {task_name}, test {i} failed with error:\n{e}\n"
+
             results.append(result)
 
             # Update card info depending on result
@@ -101,7 +114,7 @@ class Solver:
             card.num_tasks += 1
 
 
-    def solve(self, train_dict, test_grid) -> dict[str, Any]:
+    def solve(self, task) -> list[list[int]]:
         """
         Function containing the core logic of arc solving
         """

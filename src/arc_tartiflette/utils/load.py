@@ -49,33 +49,86 @@ def load_challenges_kaggle_format(input_dir):
 def grid_to_str(grid: list[list[int]]) -> str:
     return "\n".join(["".join([str(c) for c in row]) for row in grid])
 
+def flatten_task(task: dict) -> str:
+    # Prepare few-shot context from examples
+    context = ""
+    for ex in task["train"]:
+        ex_input_str = grid_to_str(ex["input"])
+        ex_output_str = grid_to_str(ex["output"])
+        context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
+
+    # Prepare test example
+    for ex in task["test"]:
+        ex_input_str = grid_to_str(ex["input"])
+        if "output" in ex.keys():
+            ex_output_str = grid_to_str(ex["output"])
+            context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
+        else:
+            context += f"Input:\n{ex_input_str}\n\n"
+
+    return context
+
 def flatten_dataset(dataset: dict) -> list[dict]:
     data = []
 
-    for task_name, task_data in dataset.items():
-        # Prepare few-shot context from examples
-        context = ""
-        for ex in task_data["train"]:
-            ex_input_str = grid_to_str(ex["input"])
-            ex_output_str = grid_to_str(ex["output"])
-            context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
-
-        # Prepare test example
-        for ex in task_data["test"]:
-            ex_input_str = grid_to_str(ex["input"])
-            if "output" in ex.keys():
-                ex_output_str = grid_to_str(ex["output"])
-                context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
-            else:
-                context += f"Input:\n{ex_input_str}\n\n"
-
-        # Combine into single sequence
-        data.append({"text": context})
+    for _, task_data in dataset.items():
+        data.append({"text": flatten_task(task_data)})
     return data
 
 def dict_to_transformers_dataset(dataset: dict) -> Dataset:
     return Dataset.from_list(flatten_dataset(dataset))
 
+def extract_output_from_text(text, auto_correct: bool=False, strict_format: bool=False) -> list[list[int]]:
+    """
+    Extract the output rectangle grid from the model's generated text.
+    Parameters:
+    - text (str): The generated text containing the output grid in the format:
+        "Output:\n123\n456\n789\n\n"
+
+    It must be robust against non regular outputs e.g. non consistent line lengths, extra text, etc.
+    """
+    # Find the "Output:" section
+    output_match = re.search(r'Output:\s*(.*?)\s*(Input:|$)', text, re.DOTALL)
+    if output_match:
+        output_text = output_match.group(1).strip()
+    else:
+        if strict_format:
+            raise ValueError("Strict format enforced and no 'Output:' section found in the text.")
+        else:
+            # find the first grid-like structure in the text
+            grid_match = re.search(r'(\d+\n)+\d+', text)
+            if not grid_match:
+                raise ValueError("No grid-like structure found in the text.")
+            output_text = grid_match.group(0)
+
+    lines = output_text.splitlines()
+
+    # Determine the expected line length (most common length)
+    line_lengths = [len(line) for line in lines if line.strip()]
+    if not line_lengths:
+        raise ValueError("No valid lines found in the 'Output:' section.")
+    expected_length = max(set(line_lengths), key=line_lengths.count)
+
+    grid = []
+    for line in lines:
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue  # Skip empty lines
+        if auto_correct:
+            # Adjust line to expected length
+            if len(stripped_line) < expected_length:
+                stripped_line = stripped_line.ljust(expected_length, '0')  # Pad with '0's
+            elif len(stripped_line) > expected_length:
+                stripped_line = stripped_line[:expected_length]  # Truncate
+        elif len(stripped_line) != expected_length:
+            raise ValueError(f"Inconsistent line length in output: '{stripped_line}'")
+
+        row = [int(char) for char in stripped_line if char.isdigit()]
+        grid.append(row)
+
+    assert all(len(row) == expected_length for row in grid), "Internal error: Inconsistent row lengths in the output grid."
+    assert len(grid) > 0, "Output grid is empty."
+    return grid
 
 if __name__ == "__main__":
     dataset = {
