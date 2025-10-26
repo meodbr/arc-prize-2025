@@ -7,10 +7,12 @@ from arc_tartiflette.utils import load
 class SolverRunCard:
     def __init__(
             self,
+            dataset_name: str,
             dataset,
             is_result_known = False,
     ):
-        self.dataset: list[dict[str, Any]]   = dataset
+        self.dataset_name: str               = dataset_name
+        self.dataset: dict[str, Any]         = dataset
         self.is_result_known: bool           = is_result_known
         self.task_results: dict[str, Any]    = {}
         self.is_task_solved: dict[str, bool] = {}
@@ -47,10 +49,13 @@ class Solver:
         """
         is_result_known = "output" in next(iter(dataset.values()))["test"][0].keys()
         score_card = SolverRunCard(
+            dataset_name=dataset_name,
             dataset=dataset,
             is_result_known=is_result_known,
         )
+        print(f"Solving dataset {dataset_name} with {len(dataset)} tasks. Result known: {is_result_known}")
         for task_name, task in dataset.items():
+            print(f"  Solving task {task_name}...")
             self._solve_task(task, score_card, task_name)
         
         if score_card.is_result_known:
@@ -64,6 +69,11 @@ class Solver:
 {score_card.tests_solved} tests solved
 {score_card.test_score*100:.1f}% of tests solved
 """
+        else:
+            score_card.summary = f"""-------- {dataset_name} solving run summary ---------
+Result unknown so no score computed
+"""
+        score_card.logs = score_card.summary + "\n\nLOGS:\n" + score_card.logs
         return score_card
 
     
@@ -93,6 +103,7 @@ class Solver:
                 card.logs += f"Task {task_name}, test {i} failed with error:\n{e}\n"
 
             results.append(result)
+            task["test"][i]["predicted_output"] = result
 
             # Update card info depending on result
             if card.is_result_known:
