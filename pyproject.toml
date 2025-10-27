@@ -9,7 +9,6 @@ authors = [
 requires-python = ">=3.10,<3.13"
 dependencies = [
     "transformers",
-    "trl",
     "torch>=2.4,<2.9",
     "huggingface-hub",
     "dotenv",
@@ -27,6 +26,12 @@ packages = ["src/arc_tartiflette"]
 
 [dependency-groups]
 dev = [
+    "trl",
     "matplotlib>=3.10.7",
     "pyqt6>=6.10.0",
+]
+
+[project.optional-dependencies]
+train = [
+    "trl",
 ]

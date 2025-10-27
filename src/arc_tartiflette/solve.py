@@ -47,7 +47,7 @@ if __name__ == "__main__":
     input_dir = "data/kaggle_input"
     output_file = "data/kaggle_working/output.json"
     # model_name = "meo-des/smollm2_arc_kaggle_without_trl"
-    model_name = "HuggingFaceTB/SmolLM2-135M"
+    model_name = "meo-des/smollm2_arc_kaggle_without_trl"
     frac = 0.01  # Fraction of dataset to use for testing
     main(
         input_dir=input_dir,

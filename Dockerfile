@@ -14,7 +14,7 @@ COPY envs/gcp/constraints.txt ./constraints.txt
 # Add sources and install project
 RUN touch README.md
 COPY src ./src
-RUN pip install --no-cache-dir -c constraints.txt .
+RUN pip install --no-cache-dir -c constraints.txt ".[train]"
 RUN rm -r /opt/python/3.10/lib/python3.10/distutils
 
 # Set default environment variables for training
