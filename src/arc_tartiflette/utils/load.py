@@ -28,7 +28,8 @@ def load_arc_challenges(filename: str):
 
 def collapse_last_lists(obj):
     # Dump nicely formatted JSON first
-    text = json.dumps(obj, indent=4)
+    dict_obj = convert_np_arrays_to_lists(obj)
+    text = json.dumps(dict_obj, indent=4)
     # Collapse the innermost lists of numbers only
     text = re.sub(r'\[\s+([0-9,\s]+?)\s+\]', lambda m: '[' + ' '.join(m.group(1).split()) + ']', text)
     return text
@@ -36,6 +37,16 @@ def collapse_last_lists(obj):
 def save_arc_challenges(data, filename: str):
     with open(filename, 'w') as f:
         f.write(collapse_last_lists(data))
+
+def convert_np_arrays_to_lists(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: convert_np_arrays_to_lists(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_np_arrays_to_lists(v) for v in obj]
+    else:
+        return obj
 
 
 def load_challenges_kaggle_format(input_dir):

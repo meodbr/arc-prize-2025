@@ -117,7 +117,11 @@ Result unknown so no score computed
 
             # Update card info depending on result
             if card.is_result_known:
-                is_solved = test["output"] in attempts.values()
+                is_solved = any(
+                    attempt is not None and np.array_equal(test["output"], attempt)
+                    for attempt in attempts.values()
+                )
+
                 if is_solved:
                     card.tests_solved += 1
                 else:
