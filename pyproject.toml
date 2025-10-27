@@ -34,9 +34,11 @@ dev = [
     "matplotlib>=3.10.7",
     "pyqt6>=6.10.0",
     "trl",
+    "peft",
 ]
 
 [project.optional-dependencies]
 train = [
+    "peft",
     "trl",
 ]

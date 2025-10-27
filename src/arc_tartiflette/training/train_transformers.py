@@ -25,6 +25,9 @@ def train_transformers(
 
     print(f"---- Starting training with Transformers Trainer ----")
     print(f"Batch size: {batch_size}\nGradient Accumulation Steps: {gradient_accumulation_steps}\nGradient Checkpointing: {gradient_checkpointing}\nLearning Rate: {learning_rate}\nNum Train Epochs: {num_train_epochs}\nUsing bf16: {use_bf16}")
+    print(f"Gradient Checkpointing Enabled: {gradient_checkpointing}")
+    print(f"Gradient Accumulation Steps: {gradient_accumulation_steps}")
+    print(f"Num Train Epochs: {num_train_epochs}")
 
     # Define training arguments using Transformers
     training_args = TrainingArguments(
@@ -55,7 +58,7 @@ def train_transformers(
         args=training_args,
         tokenizer=tokenizer,
         train_dataset=tokenized_datasets["train"],
-        eval_dataset=tokenized_datasets["test"],
+        eval_dataset=tokenized_datasets["eval"],
     )
 
     # Start training

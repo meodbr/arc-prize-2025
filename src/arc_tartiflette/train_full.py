@@ -1,5 +1,4 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from peft import LoraConfig, TaskType, get_peft_model
 import torch
 from datasets import Dataset, DatasetDict, load_dataset
 import huggingface_hub as hf
@@ -51,27 +50,6 @@ def train():
     # print("Tokenized dataset average length:", sum(len(x['input_ids']) for x in tokenized_datasets['train'])/len(tokenized_datasets['train']))
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
 
-    # ---- PEFT ----
-    use_peft = os.environ.get("USE_LORA", "true").lower() == "true"
-    lora_target_modules = os.environ.get("LORA_TARGET_MODULES", "q_proj,k_proj,v_proj,o_proj,up_proj,down_proj").split(",")
-    lora_r = int(os.environ.get("LORA_R", "32"))
-    lora_alpha = int(os.environ.get("LORA_ALPHA", "24"))
-    lora_dropout = float(os.environ.get("LORA_DROPOUT", "0.1"))
-    use_rslora = bool(os.environ.get("USE_RSLORA", "true").lower() == "true")
-    peft_config = LoraConfig(
-        r=lora_r,
-        lora_alpha=lora_alpha,
-        target_modules=lora_target_modules,
-        lora_dropout=lora_dropout,
-        bias="none",
-        use_rslora=use_rslora,
-        task_type=TaskType.CAUSAL_LM,
-    )
-    if use_peft:
-        print("Applying PEFT LoRA to the model...")
-        model = get_peft_model(model, peft_config)
-        model.print_trainable_parameters()
-        print(f"Model now has {utils.count_parameters(model)/1e6:.3f}M parameters.")
 
     # ---- TRAIN and PUSH ----
     output_model_name = os.environ.get("HF_OUTPUT_MODEL", utils.default_output_model_name(model_name, dataset_id))
@@ -79,14 +57,12 @@ def train():
 
     train_method = os.environ.get("TRAIN_METHOD", "default")
     batch_size = int(os.environ.get("BATCH_SIZE", "4"))
-    use_grad_checkpointing = os.environ.get("GRAD_CHPT", "true").lower() == "true"
+    use_peft = os.environ.get("USE_PEFT", "false").lower() == "true"
     print(f"---- Training with method '{train_method}' (batch size: {batch_size}, bf16: {use_bf16}) ----")
     print(f"Estimated VRAM needed: {gpu_availability.estimate_vram_usage(model, batch_size, use_bf16, max_length)} GB")
     print(f"Free VRAM: {torch.cuda.mem_get_info()[0]/1e9 if torch.cuda.is_available() else 'N/A'} GB")
     print(f"Estimated number of steps: {len(tokenized_datasets['train']) // batch_size}")
     print(f"Estimated time per epoch: {utils.estimate_time_per_epoch(model, batch_size, use_bf16, max_length, len(tokenized_datasets['train']))/60:.2f} minutes")
-    print("Using Gradient Checkpointing:", use_grad_checkpointing)
-    print(f"Output model name: {output_model_name}")
     match train_method:
         case "transformers":
             train_transformers(model, tokenized_datasets, tokenizer, output_model=output_model_name)

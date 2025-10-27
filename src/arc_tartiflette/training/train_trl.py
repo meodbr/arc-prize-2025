@@ -38,7 +38,7 @@ def train_trl(
         args=training_args,
         tokenizer=tokenizer,
         train_dataset=tokenized_datasets["train"],
-        eval_dataset=tokenized_datasets["test"],
+        eval_dataset=tokenized_datasets["eval"],
         dataset_text_field="text",
         packing=False,
     )
