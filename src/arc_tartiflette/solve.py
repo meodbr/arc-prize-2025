@@ -9,6 +9,7 @@ def solve_all_kaggle(
         output_dir: str,
         model_name: str,
         frac: float=1.,
+        full_test: bool=False
     ) -> None:
     """
     Main function to solve ARC challenges with a prepared solution.
@@ -22,11 +23,16 @@ def solve_all_kaggle(
     os.makedirs(figures_dir, exist_ok=True)
 
     solver = LMSolver(model_name=model_name)
-    datasets_dict = load.load_challenges_kaggle_format(input_dir)
+    datasets_dict_full = load.load_challenges_kaggle_format(input_dir)
 
     # Sample a subset of the datasets for faster testing
     if frac < 1.:
-        datasets_dict = {k: load.sample_dict(v, int(len(v)*frac)+1) for k, v in datasets_dict.items()}
+        datasets_dict = {
+            k: load.sample_dict(v, int(len(v)*frac)+1) 
+            for k, v in datasets_dict_full.items() 
+        }
+    if full_test:
+        datasets_dict["test"] = datasets_dict_full["test"]
 
     cards = solver.solve_all_datasets(datasets_dict)
     for card in cards.values():
