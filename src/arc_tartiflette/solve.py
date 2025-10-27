@@ -29,15 +29,15 @@ def solve_all_kaggle(
         datasets_dict = {k: load.sample_dict(v, int(len(v)*frac)+1) for k, v in datasets_dict.items()}
 
     cards = solver.solve_all_datasets(datasets_dict)
-    for card in cards:
+    for card in cards.values():
         print(card.summary)
     # Save logs
-    for card in cards:
+    for card in cards.values():
         with open(os.path.join(save_dir, f"{card.dataset_name}_logs.txt"), 'w') as f:
             f.write(card.logs)
 
     # Submit solution
-    load.save_arc_challenges(cards["test"], submission_file)
+    load.save_arc_challenges(cards["test"].submission, submission_file)
     print(f"Solution submitted to {submission_file}")
 
     # Save additionnal output files
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # model_name = "HuggingFaceTB/SmolLM2-135M"
     model_name = "meo-des/smollm2_arc_kaggle_without_trl"
 
-    frac = 0.01  # Fraction of dataset to use for testing
+    frac = 0.001  # Fraction of dataset to use for testing
     solve_all_kaggle(
         input_dir=input_dir,
         output_dir=output_dir,

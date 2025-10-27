@@ -15,7 +15,7 @@ class SolverRunCard:
         self.dataset_name: str               = dataset_name
         self.dataset: dict[str, Any]         = dataset
         self.is_result_known: bool           = is_result_known
-        self.submission: dict[str, Any]    = {}
+        self.submission: dict[str, Any]      = {}
         self.is_task_solved: dict[str, bool] = {}
         self.tasks_solved: int               = 0
         self.tests_solved: int               = 0
