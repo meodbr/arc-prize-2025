@@ -6,6 +6,7 @@
 *.egg-info/
 .venv/
 .python-version
+dist
 
 # Other tools
 .ruff_cache/
@@ -20,3 +21,4 @@ scripts/gcp/config/*
 
 # Project generated
 sft_output
+build
