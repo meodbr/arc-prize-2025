@@ -12,7 +12,7 @@ class SolverRunCard:
     ):
         self.dataset: list[dict[str, Any]]   = dataset
         self.is_result_known: bool           = is_result_known
-        self.task_results: dict[str, Any]    = {}
+        self.submission: dict[str, Any]    = {}
         self.is_task_solved: dict[str, bool] = {}
         self.tasks_solved: int               = 0
         self.tests_solved: int               = 0
@@ -75,15 +75,15 @@ class Solver:
         results = []
         for _, test in enumerate(tests):
             # Solving task
-            result = self.solve(
+            attempts = self.solve(
                 train_dict=task["train"],
                 test_grid=test["input"],
             )
-            results.append(result)
+            results.append(attempts)
 
             # Update card info depending on result
             if card.is_result_known:
-                is_solved = result == test["output"]
+                is_solved = test["output"] in attempts
                 if is_solved:
                     card.tests_solved += 1
                 else:
@@ -91,7 +91,7 @@ class Solver:
                 card.num_tests += 1
         
         # Store solver results
-        card.task_results[task_name] = results
+        card.submission[task_name] = results
         
         # Update task-level card info
         if card.is_result_known:
@@ -101,7 +101,7 @@ class Solver:
             card.num_tasks += 1
 
 
-    def solve(self, train_dict, test_grid) -> dict[str, Any]:
+    def solve(self, task) -> list[dict[str, Any]]:
         """
         Function containing the core logic of arc solving
         """
