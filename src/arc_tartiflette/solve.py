@@ -8,7 +8,7 @@ def solve_all_kaggle(
         input_dir: str,
         output_dir: str,
         model_name: str,
-        frac: float=1.0,
+        frac: float=1.,
     ) -> None:
     """
     Main function to solve ARC challenges with a prepared solution.
