@@ -35,13 +35,13 @@ class Solver:
         pass
     
     def solve_all_datasets(self, datasets_dict: dict[str, Any]) -> list[SolverRunCard]:
-        cards = []
+        cards = {}
         for d_name, d in datasets_dict.items():
             card = self.solve_dataset(
                 dataset=d,
                 dataset_name=d_name,
             )
-            cards.append(card)
+            cards[d_name] = card
         return cards
 
     def solve_dataset(self, dataset: dict[str, Any], dataset_name="dataset") -> SolverRunCard:
