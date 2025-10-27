@@ -97,7 +97,7 @@ Result unknown so no score computed
                     task=task_sent,
                     logs=logs,
                 )
-                assert len(attempts) <= 2, "Too many attempts mad"
+                assert len(attempts) <= 2, "Too many attempts made"
                 if logs:
                     card.logs += f"Task {task_name}, test {i} logs:\n{logs}\n"
             except Exception as e:
@@ -105,14 +105,14 @@ Result unknown so no score computed
                 card.logs += f"Task {task_name}, test {i} failed with error:\n{e}\n"
 
             results.append(attempts)
-            if len(attempts) > 0:
-                task["test"][i]["predicted_output"] = attempts[0]
-            if len(attempts) > 1:
-                task["test"][i]["predicted_output_2"] = attempts[1]
+            if "attempt_1" in attempts:
+                task["test"][i]["predicted_output"] = attempts["attempt_1"]
+            if "attempt_2" in attempts:
+                task["test"][i]["predicted_output_2"] = attempts["attempt_2"]
 
             # Update card info depending on result
             if card.is_result_known:
-                is_solved = test["output"] in attempts
+                is_solved = test["output"] in attempts.values()
                 if is_solved:
                     card.tests_solved += 1
                 else:
