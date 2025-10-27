@@ -1,8 +1,14 @@
 from typing import Any
 import os
+import numpy as np
 
 from arc_tartiflette.utils import constants
 from arc_tartiflette.utils import load
+
+DEFAULT_ATTEMPTS = {
+    "attempt_1": np.array([[0, 0], [0, 0]]),
+    "attempt_2": np.array([[0, 0], [0, 0]]),
+}
 
 class SolverRunCard:
     def __init__(
@@ -14,7 +20,7 @@ class SolverRunCard:
         self.dataset_name: str               = dataset_name
         self.dataset: dict[str, Any]         = dataset
         self.is_result_known: bool           = is_result_known
-        self.task_results: dict[str, Any]    = {}
+        self.submission: dict[str, Any]      = {}
         self.is_task_solved: dict[str, bool] = {}
         self.tasks_solved: int               = 0
         self.tests_solved: int               = 0
@@ -34,13 +40,13 @@ class Solver:
         pass
     
     def solve_all_datasets(self, datasets_dict: dict[str, Any]) -> list[SolverRunCard]:
-        cards = []
+        cards = {}
         for d_name, d in datasets_dict.items():
             card = self.solve_dataset(
                 dataset=d,
                 dataset_name=d_name,
             )
-            cards.append(card)
+            cards[d_name] = card
         return cards
 
     def solve_dataset(self, dataset: dict[str, Any], dataset_name="dataset") -> SolverRunCard:
@@ -92,22 +98,26 @@ Result unknown so no score computed
             }
             try:
                 logs = ""
-                result = self.solve(
+                attempts = self.solve(
                     task=task_sent,
                     logs=logs,
                 )
+                assert len(attempts) <= 2, "Too many attempts made"
                 if logs:
                     card.logs += f"Task {task_name}, test {i} logs:\n{logs}\n"
             except Exception as e:
-                result = None
+                attempts = DEFAULT_ATTEMPTS
                 card.logs += f"Task {task_name}, test {i} failed with error:\n{e}\n"
 
-            results.append(result)
-            task["test"][i]["predicted_output"] = result
+            results.append(attempts)
+            if "attempt_1" in attempts:
+                task["test"][i]["predicted_output"] = attempts["attempt_1"]
+            if "attempt_2" in attempts:
+                task["test"][i]["predicted_output_2"] = attempts["attempt_2"]
 
             # Update card info depending on result
             if card.is_result_known:
-                is_solved = result == test["output"]
+                is_solved = test["output"] in attempts.values()
                 if is_solved:
                     card.tests_solved += 1
                 else:
@@ -115,7 +125,7 @@ Result unknown so no score computed
                 card.num_tests += 1
         
         # Store solver results
-        card.task_results[task_name] = results
+        card.submission[task_name] = results
         
         # Update task-level card info
         if card.is_result_known:
@@ -125,9 +135,8 @@ Result unknown so no score computed
             card.num_tasks += 1
 
 
-    def solve(self, task) -> list[list[int]]:
+    def solve(self, task) -> list[np.ndarray]:
         """
         Function containing the core logic of arc solving
         """
         raise NotImplementedError("Solve must be implemented in a subclass of Solver")
-

@@ -18,6 +18,13 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
+
+      # Build package wheel
+      - name: build wheel
+        run: |
+          pip install uv==0.9.1
+          uv build --wheel && rm -rf build
+
       # Runs a single command using the runners shell
       - name: Upload datasets
         uses: jaimevalero/push-kaggle-dataset@v3.2 # This is the action
@@ -37,4 +44,5 @@ jobs:
             scripts
             pyproject.toml
             README.md
+            dist
           is_public: false

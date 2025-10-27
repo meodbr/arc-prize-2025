@@ -5,4 +5,8 @@ class NaiveCopySolver(Solver):
     Solver that outputs a copy of the input
     """
     def solve(self, task, logs=""):
-        return task["test"][0]["input"]
+        res = task["test"][0]["input"]
+        return {
+            "attempt_1": res,
+            "attempt_2": res,
+        }

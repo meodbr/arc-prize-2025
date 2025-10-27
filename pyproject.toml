@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.10,<3.13"
 dependencies = [
     "transformers",
+    "datasets",
     "torch>=2.4,<2.9",
     "huggingface-hub",
     "dotenv",
@@ -18,17 +19,21 @@ dependencies = [
 arc-tartiflette = "arc_tartiflette:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/arc_tartiflette"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [dependency-groups]
 dev = [
     "trl",
     "matplotlib>=3.10.7",
     "pyqt6>=6.10.0",
+    "trl",
 ]
 
 [project.optional-dependencies]

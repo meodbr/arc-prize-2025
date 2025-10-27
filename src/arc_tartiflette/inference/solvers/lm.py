@@ -29,10 +29,14 @@ class LMSolver(Solver):
         output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         print(output_text)
         try:
-            return self.extract_output_from_text(output_text)
+            attempt_1 = self.extract_output_from_text(output_text)
         except Exception as e:
             logs += f"Error extracting output: {e}\nUsing auto-corrected extraction.\n"
-            return self.extract_output_from_text(output_text, auto_correct=True, strict_format=False)
+            attempt_1 = self.extract_output_from_text(output_text, auto_correct=True, strict_format=False)
+        return {
+            "attempt_1": attempt_1,
+            "attempt_2": attempt_1,
+        }
 
     
     def extract_output_from_text(self, text: str, auto_correct: bool=False, strict_format: bool=False) -> list[list[int]]:
