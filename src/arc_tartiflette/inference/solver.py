@@ -5,6 +5,11 @@ import numpy as np
 from arc_tartiflette.utils import constants
 from arc_tartiflette.utils import load
 
+DEFAULT_ATTEMPTS = {
+    "attempt_1": np.array([[0, 0], [0, 0]]),
+    "attempt_2": np.array([[0, 0], [0, 0]]),
+}
+
 class SolverRunCard:
     def __init__(
             self,
@@ -101,7 +106,7 @@ Result unknown so no score computed
                 if logs:
                     card.logs += f"Task {task_name}, test {i} logs:\n{logs}\n"
             except Exception as e:
-                attempts = []
+                attempts = DEFAULT_ATTEMPTS
                 card.logs += f"Task {task_name}, test {i} failed with error:\n{e}\n"
 
             results.append(attempts)
