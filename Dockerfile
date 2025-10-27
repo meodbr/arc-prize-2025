@@ -17,5 +17,8 @@ COPY src ./src
 RUN pip install --no-cache-dir -c constraints.txt .
 RUN rm -r /opt/python/3.10/lib/python3.10/distutils
 
+# Set default environment variables for training
+COPY envs/gcp/container.env ./.env
+
 ENTRYPOINT ["python"]
 CMD ["-m", "arc_tartiflette.train"]

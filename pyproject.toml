@@ -6,13 +6,13 @@ readme = "README.md"
 authors = [
     { name = "Méo Desbois-Renaudin", email = "meo.desbois@gmail.com" }
 ]
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "transformers",
     "trl",
-    "torch>=2.4,<2.7",
-    "huggingface-hub>=0.34.4",
-    "dotenv>=0.9.9",
+    "torch>=2.4,<2.9",
+    "huggingface-hub",
+    "dotenv",
 ]
 
 [project.scripts]
@@ -24,3 +24,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/arc_tartiflette"]
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.10.7",
+    "pyqt6>=6.10.0",
+]

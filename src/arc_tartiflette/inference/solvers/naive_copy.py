@@ -4,5 +4,5 @@ class NaiveCopySolver(Solver):
     """
     Solver that outputs a copy of the input
     """
-    def solve(self, train_dict, test_grid):
-        return test_grid
+    def solve(self, task, logs=""):
+        return task["test"][0]["input"]

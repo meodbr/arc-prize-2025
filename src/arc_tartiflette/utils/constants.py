@@ -7,3 +7,16 @@ ARC_INPUT_FILES = {
 }
 
 HF_USER = "meo-des"
+
+COLOR_MAP = {
+    0: "#000000",  # Black
+    1: "#0074D9",  # Blue
+    2: "#FF4136",  # Red
+    3: "#2ECC40",  # Green
+    4: "#FFDC00",  # Yellow
+    5: "#AAAAAA",  # Grey
+    6: "#F012BE",  # Pink
+    7: "#FF851B",  # Orange
+    8: "#7FDBFF",  # Light Blue
+    9: "#870C25",  # Dark Red
+}

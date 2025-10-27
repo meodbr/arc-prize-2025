@@ -1,5 +1,6 @@
 from typing import Any
 import os
+import numpy as np
 
 from arc_tartiflette.utils import constants
 from arc_tartiflette.utils import load
@@ -7,10 +8,12 @@ from arc_tartiflette.utils import load
 class SolverRunCard:
     def __init__(
             self,
+            dataset_name: str,
             dataset,
             is_result_known = False,
     ):
-        self.dataset: list[dict[str, Any]]   = dataset
+        self.dataset_name: str               = dataset_name
+        self.dataset: dict[str, Any]         = dataset
         self.is_result_known: bool           = is_result_known
         self.submission: dict[str, Any]    = {}
         self.is_task_solved: dict[str, bool] = {}
@@ -21,6 +24,7 @@ class SolverRunCard:
         self.num_tests: int                  = 0
         self.num_tasks: int                  = 0
         self.summary: str                    = ""
+        self.logs: str                       = ""
 
 class Solver:
     """
@@ -46,10 +50,13 @@ class Solver:
         """
         is_result_known = "output" in next(iter(dataset.values()))["test"][0].keys()
         score_card = SolverRunCard(
+            dataset_name=dataset_name,
             dataset=dataset,
             is_result_known=is_result_known,
         )
+        print(f"Solving dataset {dataset_name} with {len(dataset)} tasks. Result known: {is_result_known}")
         for task_name, task in dataset.items():
+            print(f"  Solving task {task_name}...")
             self._solve_task(task, score_card, task_name)
         
         if score_card.is_result_known:
@@ -63,6 +70,11 @@ class Solver:
 {score_card.tests_solved} tests solved
 {score_card.test_score*100:.1f}% of tests solved
 """
+        else:
+            score_card.summary = f"""-------- {dataset_name} solving run summary ---------
+Result unknown so no score computed
+"""
+        score_card.logs = score_card.summary + "\n\nLOGS:\n" + score_card.logs
         return score_card
 
     
@@ -73,13 +85,30 @@ class Solver:
         tests = task["test"]
         every_test_solved = True
         results = []
-        for _, test in enumerate(tests):
+        for i, test in enumerate(tests):
             # Solving task
-            attempts = self.solve(
-                train_dict=task["train"],
-                test_grid=test["input"],
-            )
+            task_sent = {
+                "train": task["train"],
+                "test": [test],
+            }
+            try:
+                logs = ""
+                attempts = self.solve(
+                    task=task_sent,
+                    logs=logs,
+                )
+                assert len(attempts) <= 2, "Too many attempts mad"
+                if logs:
+                    card.logs += f"Task {task_name}, test {i} logs:\n{logs}\n"
+            except Exception as e:
+                attempts = []
+                card.logs += f"Task {task_name}, test {i} failed with error:\n{e}\n"
+
             results.append(attempts)
+            if len(attempts) > 0:
+                task["test"][i]["predicted_output"] = attempts[0]
+            if len(attempts) > 1:
+                task["test"][i]["predicted_output_2"] = attempts[1]
 
             # Update card info depending on result
             if card.is_result_known:
@@ -101,9 +130,8 @@ class Solver:
             card.num_tasks += 1
 
 
-    def solve(self, task) -> list[dict[str, Any]]:
+    def solve(self, task) -> list[np.ndarray]:
         """
         Function containing the core logic of arc solving
         """
         raise NotImplementedError("Solve must be implemented in a subclass of Solver")
-
