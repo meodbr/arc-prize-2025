@@ -25,7 +25,8 @@ def solve_all_kaggle(
     datasets_dict = load.load_challenges_kaggle_format(input_dir)
 
     # Sample a subset of the datasets for faster testing
-    datasets_dict = {k: load.sample_dict(v, int(len(v)*frac)+1) for k, v in datasets_dict.items()}
+    if frac < 1.:
+        datasets_dict = {k: load.sample_dict(v, int(len(v)*frac)+1) for k, v in datasets_dict.items()}
 
     cards = solver.solve_all_datasets(datasets_dict)
     for card in cards:
@@ -37,6 +38,7 @@ def solve_all_kaggle(
 
     # Submit solution
     load.save_arc_challenges(cards["test"], submission_file)
+    print(f"Solution submitted to {submission_file}")
 
     # Save additionnal output files
     load.save_arc_challenges(datasets_dict, solved_file)
@@ -54,8 +56,9 @@ def solve_all_kaggle(
 if __name__ == "__main__":
     input_dir = "data/kaggle_input"
     output_dir = "data/kaggle_working"
-    # model_name = "meo-des/smollm2_arc_kaggle_without_trl"
-    model_name = "HuggingFaceTB/SmolLM2-135M"
+    # model_name = "HuggingFaceTB/SmolLM2-135M"
+    model_name = "meo-des/smollm2_arc_kaggle_without_trl"
+
     frac = 0.01  # Fraction of dataset to use for testing
     solve_all_kaggle(
         input_dir=input_dir,
