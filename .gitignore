@@ -17,7 +17,7 @@ data/
 models/
 .env
 scripts/gcp/config/*
-scripts/gcp/upload_dataset
+scripts/kaggle/upload_dataset
 !scripts/gcp/config/config.example.json
 
 # Project generated
