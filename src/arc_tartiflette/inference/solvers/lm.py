@@ -40,88 +40,87 @@ class LMSolver(Solver):
 
     import re
 
-def extract_output_from_text(
-        self, 
-        text: str,
-        format: dict = constants.DEFAULT_PROMPT_FORMAT,
-        auto_correct: bool = False,
-        strict_format: bool = False
-    ) -> list[list[int]]:
-    """
-    Extract the output rectangle grid from the model's generated text.
-    Uses the delimiters and tokens defined in `format`.
+    def extract_output_from_text(
+            self, 
+            text: str,
+            format: dict = constants.DEFAULT_PROMPT_FORMAT,
+            auto_correct: bool = False,
+            strict_format: bool = False
+        ) -> list[list[int]]:
+        """
+        Extract the output rectangle grid from the model's generated text.
+        Uses the delimiters and tokens defined in `format`.
 
-    Example of expected format dict:
-    {
-        "preprompt": "",
-        "input_beg": "Input:\n",
-        "output_beg": "Output:\n",
-        "row_end": "\n",
-        "grid_end": "\n",
-        "example_end": "\n",
-        "bos_token": "<bos>",
-        "eos_token": "<eos>",
-    }
-    """
+        Example of expected format dict:
+        {
+            "preprompt": "",
+            "input_beg": "Input:\n",
+            "output_beg": "Output:\n",
+            "row_end": "\n",
+            "grid_end": "\n",
+            "bos_token": "",
+            "eos_token": "\n",
+        }
+        """
 
-    output_beg = re.escape(format.get("output_beg", "Output:\n"))
-    input_beg = re.escape(format.get("input_beg", "Input:\n"))
+        output_beg = re.escape(format.get("output_beg", "Output:\n"))
+        input_beg = re.escape(format.get("input_beg", "Input:\n"))
 
-    # Find the "Output" section dynamically
-    output_match = re.search(
-        rf"{output_beg}\s*(.*?)\s*(?:{input_beg}|$)", 
-        text, 
-        re.DOTALL
-    )
+        # Find the "Output" section dynamically
+        output_match = re.search(
+            rf"{output_beg}\s*(.*?)\s*(?:{input_beg}|$)", 
+            text, 
+            re.DOTALL
+        )
 
-    if output_match:
-        output_text = output_match.group(1).strip()
-    else:
-        if strict_format:
-            raise ValueError(f"Strict format enforced and no '{format.get('output_beg')}' section found in the text.")
+        if output_match:
+            output_text = output_match.group(1).strip()
         else:
-            # fallback: try to extract first grid-like section
-            grid_match = re.search(r'(\d+\n)+\d+', text)
-            if not grid_match:
-                raise ValueError("No grid-like structure found in the text.")
-            output_text = grid_match.group(0)
+            if strict_format:
+                raise ValueError(f"Strict format enforced and no '{format.get('output_beg')}' section found in the text.")
+            else:
+                # fallback: try to extract first grid-like section
+                grid_match = re.search(r'(\d+\n)+\d+', text)
+                if not grid_match:
+                    raise ValueError("No grid-like structure found in the text.")
+                output_text = grid_match.group(0)
 
-    # Split lines safely
-    lines = output_text.splitlines()
+        # Split lines safely
+        lines = output_text.splitlines()
 
-    # Determine most common line length
-    line_lengths = [len(line) for line in lines if line.strip()]
-    if not line_lengths:
-        raise ValueError("No valid lines found in the output section.")
-    expected_length = max(set(line_lengths), key=line_lengths.count)
+        # Determine most common line length
+        line_lengths = [len(line) for line in lines if line.strip()]
+        if not line_lengths:
+            raise ValueError("No valid lines found in the output section.")
+        expected_length = max(set(line_lengths), key=line_lengths.count)
 
-    # Build the numeric grid
-    grid = []
-    for line in lines:
-        stripped_line = line.strip()
-        if not stripped_line:
-            continue
-        if auto_correct:
-            # normalize line length
-            if len(stripped_line) < expected_length:
-                stripped_line = stripped_line.ljust(expected_length, '0')
-            elif len(stripped_line) > expected_length:
-                stripped_line = stripped_line[:expected_length]
-        elif len(stripped_line) != expected_length:
-            raise ValueError(f"Inconsistent line length in output: '{stripped_line}'")
+        # Build the numeric grid
+        grid = []
+        for line in lines:
+            stripped_line = line.strip()
+            if not stripped_line:
+                continue
+            if auto_correct:
+                # normalize line length
+                if len(stripped_line) < expected_length:
+                    stripped_line = stripped_line.ljust(expected_length, '0')
+                elif len(stripped_line) > expected_length:
+                    stripped_line = stripped_line[:expected_length]
+            elif len(stripped_line) != expected_length:
+                raise ValueError(f"Inconsistent line length in output: '{stripped_line}'")
 
-        row = [int(char) for char in stripped_line if char.isdigit()]
-        grid.append(row)
+            row = [int(char) for char in stripped_line if char.isdigit()]
+            grid.append(row)
 
-    # Sanity checks
-    if not grid:
-        raise ValueError("Output grid is empty.")
-    if not all(len(row) == expected_length for row in grid):
-        raise ValueError("Inconsistent row lengths in the output grid.")
+        # Sanity checks
+        if not grid:
+            raise ValueError("Output grid is empty.")
+        if not all(len(row) == expected_length for row in grid):
+            raise ValueError("Inconsistent row lengths in the output grid.")
 
-    return grid
+        return grid
     
-    def extract_output_from_text(self, 
+    def extract_output_from_text_old(self, 
             text: str,
             format: dict=constants.DEFAULT_PROMPT_FORMAT,
             auto_correct: bool=False,

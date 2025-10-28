@@ -27,7 +27,6 @@ DEFAULT_PROMPT_FORMAT = {
     "output_beg": "Output:\n",
     "row_end": "\n",
     "grid_end": "\n",
-    "example_end": "\n",
-    "bos_token": "<bos>",
-    "eos_token": "<eos>",
+    "bos_token": "",
+    "eos_token": "\n",
 }
