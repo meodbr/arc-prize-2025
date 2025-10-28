@@ -23,3 +23,5 @@ scripts/kaggle/upload_dataset
 # Project generated
 sft_output
 build
+*.tar
+*.tar.gz
