@@ -1,27 +1,9 @@
 from trl import SFTConfig, SFTTrainer
 from datasets import Dataset, DatasetDict
 import torch
-from trl import DataCollatorForCompletionOnlyLM
 
-from arc_tartiflette.utils import model as model_tools
-
-class InputMaskingDataCollator(DataCollatorForCompletionOnlyLM):
-    def __init__(self, mask_first_n_examples=0, **kwargs):
-        super().__init__(**kwargs)
-        self.mask_first_n_examples = mask_first_n_examples
-
-    def torch_call(self, examples):
-        batch = super().torch_call(examples)  # call super, masking all inputs
-        for i in range(len(batch['labels'])):
-            for _ in range(self.mask_first_n_examples):
-                # mask first still unmasked output block
-                beg_pos = ((batch['labels'][i] != -100).nonzero().min()).item()
-                mid_pos = ((batch['labels'][i][beg_pos:] == -100).nonzero().min()).item() + beg_pos
-                end_pos = ((batch['labels'][i] != -100).nonzero().max()).item() + 1
-                if mid_pos < end_pos:
-                    batch['labels'][i][beg_pos:mid_pos] = -100
-        return batch
-
+from arc_tartiflette.model_tools import tokenizer as model_tools
+from arc_tartiflette.model_tools.data_collator import ExampleMaskingDataCollator
 
 def train_trl(
         model, 
@@ -64,7 +46,7 @@ def train_trl(
         eval_dataset=tokenized_datasets["eval"],
         dataset_text_field="text",
         packing=False,
-        data_collator=InputMaskingDataCollator(
+        data_collator=ExampleMaskingDataCollator(
             instruction_template=fmt['input_beg'],
             response_template=fmt['output_beg'],
             mlm=False,
