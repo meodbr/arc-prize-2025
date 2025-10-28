@@ -40,6 +40,7 @@ def train():
     # ---- TOKENIZE ----
     print("Tokenizing dataset...")
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
+    print(f"Tokenizer fast? {tokenizer.is_fast()}")
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
     keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
     model_tools.keep_single_char_tokens(model, tokenizer, keep_tok=keep_tok)

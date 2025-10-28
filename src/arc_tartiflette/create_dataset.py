@@ -36,8 +36,14 @@ def neoneye_flatten_and_push(
         hf_dataset = load.dict_to_transformers_dataset(dataset, format)
         datasetdict[dataset_name] = hf_dataset
 
-    hf_datasetdict = DatasetDict(datasetdict)
+    hf_concatenated = concatenate_datasets(list(datasetdict.values()))
+    hf_datasetdict = DatasetDict({
+        "train": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)))),
+        "eval": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)), int(0.9*len(hf_concatenated)))),
+        "test": hf_concatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatenated)), len(hf_concatenated))),
+    })
     hf_datasetdict.push_to_hub(output_name)
+    print("Dataset pushed to hub")
 
 def neoneye_augment_and_push(
         path_tuples: list,
@@ -64,9 +70,10 @@ def neoneye_augment_and_push(
         "test": hf_concatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatenated)), len(hf_concatenated))),
     })
     hf_datasetdict.push_to_hub(output_name)
+    print("Dataset pushed to hub")
 
 if __name__ == "__main__":
-    output_name = "meo-des/arc_main_fmt_aug"
+    output_name = "meo-des/arc_main_fmt"
     kaggle_input_dir = "data/kaggle_input"
     # kaggle_flatten_and_push(kaggle_input_dir)
     neoneye_path_tuples = load.NEONEYE_DATASETS["main_v1"]
@@ -75,4 +82,4 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
     format = model_tools.get_architects_prompt_format(tokenizer)
 
-    neoneye_augment_and_push(neoneye_path_tuples, output_name=output_name, format=format)
+    neoneye_flatten_and_push(neoneye_path_tuples, output_name=output_name, format=format)
