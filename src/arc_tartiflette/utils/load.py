@@ -116,41 +116,54 @@ def load_challenges_neoneye_format(path_tuples, neoneye_dir: str="data/neoneye")
     return datasets
 
 
-def grid_to_str(grid: list[list[int]]) -> str:
-    return "\n".join(["".join([str(c) for c in row]) for row in grid])
+def grid_to_str(grid: list[list[int]], format: dict[str, str]) -> str:
+    assert "row_end" in format.keys()
+    return format["row_end"].join(["".join([str(c) for c in row]) for row in grid])
 
-def flatten_task(task: dict, prompt: bool=False) -> str:
+def flatten_task(task: dict, prompt: bool=False, format: dict=constants.DEFAULT_PROMPT_FORMAT) -> str:
     # Prepare few-shot context from examples
-    context = ""
-    for ex in task["train"]:
-        ex_input_str = grid_to_str(ex["input"])
-        ex_output_str = grid_to_str(ex["output"])
-        context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
+    context = format["bos_token"] + format["preprompt"]
+    for i, ex in enumerate(task["train"]):
+        if i > 0:
+            context += format["bos_token"]
+        context += format["input_beg"]
+        context += grid_to_str(ex["input"], format=format)
+        context += format["grid_end"]
+        context += format["output_beg"]
+        context += grid_to_str(ex["output"], format=format)
+        context += format["grid_end"]
+        context += format["eos_token"]
 
     # Prepare test example
     for ex in task["test"]:
-        ex_input_str = grid_to_str(ex["input"])
+        ex_input_str = grid_to_str(ex["input"], format=format)
+
+        context += format["input_beg"]
+        context += grid_to_str(ex["input"], format=format)
+        context += format["grid_end"]
+
         if prompt:
-            context += f"Input:\n{ex_input_str}\nOutput:\n"
+            context += format["output_beg"]
             break
 
         if "output" in ex.keys():
-            ex_output_str = grid_to_str(ex["output"])
-            context += f"Input:\n{ex_input_str}\nOutput:\n{ex_output_str}\n\n"
-        else:
-            context += f"Input:\n{ex_input_str}\n\n"
+            context += format["output_beg"]
+            context += grid_to_str(ex["output"], format=format)
+            context += format["grid_end"]
+
+        context += format["eos_token"]
 
     return context
 
-def flatten_dataset(dataset: dict, prompt: bool=False) -> list[dict]:
+def flatten_dataset(dataset: dict, prompt: bool=False, format: dict=constants.DEFAULT_PROMPT_FORMAT) -> list[dict]:
     data = []
 
     for _, task_data in dataset.items():
-        data.append({"text": flatten_task(task_data, prompt=prompt), "task": task_data})
+        data.append({"text": flatten_task(task_data, prompt=prompt, format=format), "task": task_data})
     return data
 
-def dict_to_transformers_dataset(dataset: dict) -> Dataset:
-    return Dataset.from_list(flatten_dataset(dataset))
+def dict_to_transformers_dataset(dataset: dict, format: dict=constants.DEFAULT_PROMPT_FORMAT) -> Dataset:
+    return Dataset.from_list(flatten_dataset(dataset, format=format))
 
 def sample_dict(data: dict, num_samples: int) -> dict:
     sampled_dict = dict(random.sample(list(data.items()), num_samples))

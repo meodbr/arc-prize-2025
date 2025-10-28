@@ -5,6 +5,7 @@ from datasets import Dataset, DatasetDict, load_dataset
 import huggingface_hub as hf
 import os
 
+import arc_tartiflette.utils.model as model_tools
 from arc_tartiflette.utils import utils, constants, gpu_availability
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
@@ -22,7 +23,7 @@ def train():
     )
     print(f"---- Model {model_name} loaded. ----")
     print(f"Model has {utils.count_parameters(model)/1e9:.3f}B parameters.")
-    print(model.config)
+    # print(model.config)
 
 
     # ---- DATASET ----
@@ -40,6 +41,8 @@ def train():
     print("Tokenizing dataset...")
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+    keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
+    model_tools.keep_single_char_tokens(model, tokenizer, keep_tok=keep_tok)
     max_length = int(os.environ.get("TOKENIZER_MAX_LENGTH", "2048"))
     def tokenize_function(example):
         tokenized = tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length")

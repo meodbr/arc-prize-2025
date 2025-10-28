@@ -20,3 +20,14 @@ COLOR_MAP = {
     8: "#7FDBFF",  # Light Blue
     9: "#870C25",  # Dark Red
 }
+
+DEFAULT_PROMPT_FORMAT = {
+    "preprompt": "",
+    "input_beg": "Input:\n",
+    "output_beg": "Output:\n",
+    "row_end": "\n",
+    "grid_end": "\n",
+    "example_end": "\n",
+    "bos_token": "<bos>",
+    "eos_token": "<eos>",
+}

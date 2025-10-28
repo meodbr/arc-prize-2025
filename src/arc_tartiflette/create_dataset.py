@@ -1,8 +1,10 @@
 import huggingface_hub as hf
 from datasets import DatasetDict, concatenate_datasets
+from transformers import AutoTokenizer
 import os
 
-from arc_tartiflette.utils import load, utils
+from arc_tartiflette.utils import load, utils, constants
+import arc_tartiflette.utils.model as model_tools
 
 def kaggle_flatten_and_push(input_dir):
     # Get dataset
@@ -20,19 +22,29 @@ def kaggle_flatten_and_push(input_dir):
 
     hf_datasetdict.push_to_hub("meo-des/arc-agi-2_kaggle_flattened")
 
-def neoneye_flatten_and_push(path_tuples: list, output_name: str="meo-des/arc-agi-2_neoneye", neoneye_dir: str="data/neoneye"):
+def neoneye_flatten_and_push(
+        path_tuples: list, 
+        output_name: str="meo-des/arc-agi-2_neoneye",
+        neoneye_dir: str="data/neoneye",
+        format: dict=constants.DEFAULT_PROMPT_FORMAT,
+    ):
     # Get dataset
     dict_datasets = load.load_challenges_neoneye_format(path_tuples, neoneye_dir=neoneye_dir)
 
     datasetdict = {}
     for dataset_name, dataset in dict_datasets.items():
-        hf_dataset = load.dict_to_transformers_dataset(dataset)
+        hf_dataset = load.dict_to_transformers_dataset(dataset, format)
         datasetdict[dataset_name] = hf_dataset
 
     hf_datasetdict = DatasetDict(datasetdict)
     hf_datasetdict.push_to_hub(output_name)
 
-def neoneye_augment_and_push(path_tuples: list, output_name: str="meo-des/arc-agi-2_neoneye", neoneye_dir: str="data/neoneye"):
+def neoneye_augment_and_push(
+        path_tuples: list,
+        output_name: str="meo-des/arc-agi-2_neoneye",
+        neoneye_dir: str="data/neoneye",
+        format: dict=constants.DEFAULT_PROMPT_FORMAT,
+    ):
     # Get dataset
     dict_datasets = load.load_challenges_neoneye_format(path_tuples, neoneye_dir=neoneye_dir)
 
@@ -42,7 +54,7 @@ def neoneye_augment_and_push(path_tuples: list, output_name: str="meo-des/arc-ag
         print(f"  Augmenting dataset: {dataset_name} with {len(dataset)} tasks.")
         dataset = load.augment_dict(dataset, augment_types=["rot_flip", "color", "order"])
         print(f"  Augmented dataset now has {len(dataset)} tasks.")
-        hf_dataset = load.dict_to_transformers_dataset(dataset)
+        hf_dataset = load.dict_to_transformers_dataset(dataset, format)
         datasetdict[dataset_name] = hf_dataset
 
     hf_concatenated = concatenate_datasets(list(datasetdict.values()))
@@ -54,8 +66,13 @@ def neoneye_augment_and_push(path_tuples: list, output_name: str="meo-des/arc-ag
     hf_datasetdict.push_to_hub(output_name)
 
 if __name__ == "__main__":
-    output_name = "meo-des/arc_main_v1_augmented"
+    output_name = "meo-des/arc_main_fmt_aug"
     kaggle_input_dir = "data/kaggle_input"
     # kaggle_flatten_and_push(kaggle_input_dir)
     neoneye_path_tuples = load.NEONEYE_DATASETS["main_v1"]
-    neoneye_augment_and_push(neoneye_path_tuples, output_name=output_name)
+
+    # Format
+    tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
+    format = model_tools.get_architects_prompt_format(tokenizer)
+
+    neoneye_augment_and_push(neoneye_path_tuples, output_name=output_name, format=format)
