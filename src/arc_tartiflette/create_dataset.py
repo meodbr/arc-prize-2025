@@ -4,7 +4,7 @@ from transformers import AutoTokenizer
 import os
 
 from arc_tartiflette.utils import load, utils, constants
-import arc_tartiflette.utils.model as model_tools
+import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
 
 def kaggle_flatten_and_push(input_dir):
     # Get dataset
@@ -80,6 +80,6 @@ if __name__ == "__main__":
 
     # Format
     tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
-    format = model_tools.get_architects_prompt_format(tokenizer)
+    format = tokenizer_tools.get_architects_prompt_format(tokenizer)
 
     neoneye_flatten_and_push(neoneye_path_tuples, output_name=output_name, format=format)

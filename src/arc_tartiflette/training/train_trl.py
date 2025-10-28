@@ -2,7 +2,7 @@ from trl import SFTConfig, SFTTrainer
 from datasets import Dataset, DatasetDict
 import torch
 
-from arc_tartiflette.model_tools import tokenizer as model_tools
+from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
 from arc_tartiflette.model_tools.data_collator import ExampleMaskingDataCollator
 
 def train_trl(
@@ -13,7 +13,7 @@ def train_trl(
     ):
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
 
-    fmt = model_tools.get_architects_prompt_format(tokenizer)
+    fmt = get_architects_prompt_format(tokenizer)
 
     # Define training arguments using TRL's SFTConfig
     training_args = SFTConfig(
@@ -47,7 +47,6 @@ def train_trl(
         dataset_text_field="text",
         packing=False,
         data_collator=ExampleMaskingDataCollator(
-            instruction_template=fmt['input_beg'],
             response_template=fmt['output_beg'],
             mlm=False,
             tokenizer=tokenizer,

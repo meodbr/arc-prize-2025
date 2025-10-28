@@ -5,7 +5,7 @@ from datasets import Dataset, DatasetDict, load_dataset
 import huggingface_hub as hf
 import os
 
-import arc_tartiflette.utils.model as model_tools
+import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
 from arc_tartiflette.utils import utils, constants, gpu_availability
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
@@ -40,13 +40,13 @@ def train():
     # ---- TOKENIZE ----
     print("Tokenizing dataset...")
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
-    print(f"Tokenizer fast? {tokenizer.is_fast()}")
+    print(f"Tokenizer fast? {tokenizer.is_fast}")
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
 
     # Shrink vocab to only keep useful tokens
     print("Shrinking tokenizer vocabulary to only keep useful tokens...")
     keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
-    model_tools.keep_single_char_tokens(model, tokenizer, keep_tok=keep_tok)
+    tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep_tok=keep_tok)
     print(f"New tokenizer vocab size: {len(tokenizer)}")
 
     max_length = int(os.environ.get("TOKENIZER_MAX_LENGTH", "2048"))
