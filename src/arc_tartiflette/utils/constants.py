@@ -30,3 +30,58 @@ DEFAULT_PROMPT_FORMAT = {
     "bos_token": "",
     "eos_token": "\n",
 }
+
+DEFAULT_ENV_VARS = {
+    "HF_BASE_MODEL": {
+        "value": "HuggingFaceTB/SmolLM2-135M",
+        "type": str
+    },
+    "HF_DATASET": {
+        "value": "arc-agi-2_kaggle_flatten",
+        "type": str
+    },
+    "HF_OUTPUT_MODEL": {
+        "value": "default_output_model",
+        "type": str
+    },
+    "TOKENIZER_MAX_LENGTH": {
+        "value": "2048",
+        "type": int
+    },
+    "TRAIN_METHOD": {
+        "value": "default",
+        "type": str
+    },
+    "BATCH_SIZE": {
+        "value": "4",
+        "type": int
+    },
+    "GRAD_CHPT": {
+        "value": "False",
+        "type": bool
+    },
+    "USE_LORA": {
+        "value": "True",
+        "type": bool
+    },
+    "LORA_TARGET_MODULES": {
+        "value": "q_proj,k_proj,v_proj,o_proj,up_proj,down_proj",
+        "type": list[str]
+    },
+    "LORA_R": {
+        "value": "32",
+        "type": int
+    },
+    "LORA_ALPHA": {
+        "value": "24",
+        "type": int
+    },
+    "LORA_DROPOUT": {
+        "value": "0.1",
+        "type": float
+    },
+    "USE_RSLORA": {
+        "value": "True",
+        "type": bool
+    },
+}
