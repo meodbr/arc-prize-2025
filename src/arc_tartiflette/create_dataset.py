@@ -43,7 +43,7 @@ def neoneye_flatten_and_push(
         "test": hf_concatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatenated)), len(hf_concatenated))),
     })
     hf_datasetdict.push_to_hub(output_name)
-    print("Dataset pushed to hub")
+    print(f"Dataset pushed to hub: {output_name}")
 
 def neoneye_augment_and_push(
         path_tuples: list,
@@ -57,10 +57,10 @@ def neoneye_augment_and_push(
     datasetdict = {}
     print("Augmenting datasets...")
     for dataset_name, dataset in dict_datasets.items():
-        print(f"  Augmenting dataset: {dataset_name} with {len(dataset)} tasks.")
-        dataset = load.augment_dict(dataset, augment_types=["rot_flip", "color", "order"])
-        print(f"  Augmented dataset now has {len(dataset)} tasks.")
         hf_dataset = load.dict_to_transformers_dataset(dataset, format)
+        print(f"  Augmenting dataset: {dataset_name} with {len(dataset)} tasks.")
+        hf_dataset = load.augment_transformers_dataset(hf_dataset, format=format, augment_types=["rot_flip", "color", "order"])
+        print(f"  Augmented dataset now has {len(dataset)} tasks.")
         datasetdict[dataset_name] = hf_dataset
 
     hf_concatenated = concatenate_datasets(list(datasetdict.values()))
@@ -70,16 +70,19 @@ def neoneye_augment_and_push(
         "test": hf_concatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatenated)), len(hf_concatenated))),
     })
     hf_datasetdict.push_to_hub(output_name)
-    print("Dataset pushed to hub")
+    print(f"Dataset pushed to hub: {output_name}")
 
 if __name__ == "__main__":
-    output_name = "meo-des/arc_main_fmt"
+    output_name = "meo-des/arc_main_fmt_aug"
     kaggle_input_dir = "data/kaggle_input"
+    model_name = "nvidia/Mistral-NeMo-Minitron-8B-Base"
+    # model_name = "HuggingFaceTB/SmolLM2-135M"
     # kaggle_flatten_and_push(kaggle_input_dir)
     neoneye_path_tuples = load.NEONEYE_DATASETS["main_v1"]
 
     # Format
-    tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     format = tokenizer_tools.get_architects_prompt_format(tokenizer)
 
-    neoneye_flatten_and_push(neoneye_path_tuples, output_name=output_name, format=format)
+    # neoneye_flatten_and_push(neoneye_path_tuples, output_name=output_name, format=format)
+    neoneye_augment_and_push(neoneye_path_tuples, output_name=output_name, format=format)

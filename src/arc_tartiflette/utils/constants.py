@@ -84,4 +84,16 @@ DEFAULT_ENV_VARS = {
         "value": "True",
         "type": bool
     },
+    "DO_AUG": {
+        "value": "True",
+        "type": bool
+    },
+    "AUG_COLOR_NUM": {
+        "value": "3",
+        "type": int
+    },
+    "AUG_ORDER_NUM": {
+        "value": "3",
+        "type": int
+    },
 }

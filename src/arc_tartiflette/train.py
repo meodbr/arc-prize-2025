@@ -6,7 +6,7 @@ import huggingface_hub as hf
 import os
 
 import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
-from arc_tartiflette.utils import utils, constants, gpu_availability
+from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
 from arc_tartiflette.config.settings import ENV_VARS
@@ -33,11 +33,32 @@ def get_dataset(dataset_id: str):
     return dataset_dict
 
 
+def augment_dataset(dataset, tokenizer):
+    for split, data in dataset.items():
+        data = load.augment_transformers_dataset(
+            data,
+            format=tokenizer_tools.get_architects_prompt_format(tokenizer),
+            multipliers = {
+                "color": ENV_VARS["AUG_COLOR_NUM"],
+                "order": ENV_VARS["AUG_ORDER_NUM"],
+            },
+        )
+    return dataset
+
+
 def get_tokenizer(model_name: str):
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
     print(f"Tokenizer fast? {tokenizer.is_fast}")
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
     return tokenizer
+
+
+def shrink_vocab(model, tokenizer):
+    # Shrink vocab to only keep useful tokens
+    print("Shrinking tokenizer vocabulary to only keep useful tokens...")
+    keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
+    tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep_tok=keep_tok)
+    print(f"New tokenizer vocab size: {len(tokenizer)}")
 
 
 def tokenize_dataset(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
@@ -97,10 +118,21 @@ def print_before_training_info(model, tokenized_datasets, use_bf16):
     print(f"Output model name: {output_model_name}")
 
 
-def train():
-    gpu_availability.print_gpu_availability()
+def test_model(model, tokenizer):
+    print("--- TEST ----")
+    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
 
-    # Set device
+    # Test prompt
+    fmt = tokenizer_tools.get_architects_prompt_format(tokenizer)
+    prompt = fmt["bos_token"] + fmt["preprompt"] + fmt["input_beg"]
+    output = pipe(prompt, max_new_tokens=100, do_sample=True, temperature=0.7)
+
+    print(output[0]["generated_text"])
+
+
+def train():
+    # ---- DEVICE ----
+    gpu_availability.print_gpu_availability()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # ---- MODEL ----
@@ -111,8 +143,11 @@ def train():
     dataset_id = f"{constants.HF_USER}/{ENV_VARS['HF_DATASET']}"
     dataset_dict = get_dataset(dataset_id)
 
-    # ---- TOKENIZE ----
+    # ---- PREPROCESS ----
     tokenizer = get_tokenizer(model_name)
+    shrink_vocab(model, tokenizer)
+    if len(dataset_dict) < 10000 or ENV_VARS['DO_AUG']:
+        dataset_dict = augment_dataset(dataset_dict, tokenizer)
     tokenized_datasets = tokenize_dataset(dataset_dict, tokenizer)
 
     # ---- PEFT ----
@@ -120,7 +155,7 @@ def train():
     if use_peft:
         model = setup_peft_lora(model)
 
-    # ---- TRAIN and PUSH ----
+    # ---- TRAIN ----
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
     print_before_training_info(model, tokenized_datasets, use_bf16)
     match ENV_VARS["TRAIN_METHOD"]:
@@ -130,18 +165,12 @@ def train():
             train_trl(model, tokenized_datasets, tokenizer, output_model=ENV_VARS["HF_OUTPUT_MODEL"])
         case _:
             train_transformers(model, tokenized_datasets, tokenizer, output_model=ENV_VARS["HF_OUTPUT_MODEL"])
+    
+    # ---- PUSH ----
+    model.push_to_hub(ENV_VARS["HF_OUTPUT_MODEL"])
 
-    # ---- TEST generation ----
-    print("Generate")
-
-    # Create inference pipeline
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
-
-    # Test prompt
-    prompt = "I51341"
-    output = pipe(prompt, max_new_tokens=100, do_sample=True, temperature=0.7)
-
-    print(output[0]["generated_text"])
+    # ---- TEST ----
+    test_model(model, tokenizer)
 
 if __name__ == "__main__":
     train()
