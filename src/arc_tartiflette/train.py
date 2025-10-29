@@ -1,4 +1,5 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+import unsloth # Ensure unsloth is imported before transformers to avoid CUDA errors
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from unsloth import FastLanguageModel
 from peft import LoraConfig, TaskType, get_peft_model
 import torch
