@@ -52,9 +52,17 @@ DEFAULT_ENV_VARS = {
         "value": "default",
         "type": str
     },
+    "TRAIN_EPOCHS": {
+        "value": "0.1",
+        "type": float,
+    },
     "BATCH_SIZE": {
         "value": "4",
         "type": int
+    },
+    "LR": {
+        "value": "5e-5",
+        "type": float
     },
     "GRAD_CHPT": {
         "value": "False",

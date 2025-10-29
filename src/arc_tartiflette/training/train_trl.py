@@ -4,6 +4,7 @@ import torch
 
 from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
 from arc_tartiflette.model_tools.data_collator import ExampleMaskingDataCollator
+from arc_tartiflette.config.settings import ENV_VARS
 
 def train_trl(
         model, 
@@ -18,14 +19,14 @@ def train_trl(
     # Define training arguments using TRL's SFTConfig
     training_args = SFTConfig(
         output_dir=f"./data/models/{output_model}",
-        num_train_epochs=3,
-        per_device_train_batch_size=4,
-        per_device_eval_batch_size=4,
-        gradient_accumulation_steps=2,
+        num_train_epochs=ENV_VARS["TRAIN_EPOCHS"],
+        per_device_train_batch_size=ENV_VARS["BATCH_SIZE"],
+        per_device_eval_batch_size=ENV_VARS["BATCH_SIZE"],
+        gradient_accumulation_steps=ENV_VARS["GRAD_ACC_STEPS"],
         evaluation_strategy="epoch",
         save_strategy="epoch",
         logging_steps=50,
-        learning_rate=5e-5,
+        learning_rate=ENV_VARS["LR"],
         warmup_ratio=0.1,
         lr_scheduler_type="linear",
         weight_decay=0.01,
@@ -46,12 +47,12 @@ def train_trl(
         eval_dataset=tokenized_datasets["eval"],
         dataset_text_field="text",
         packing=False,
-        data_collator=ExampleMaskingDataCollator(
-            response_template=fmt['output_beg'],
-            mlm=False,
-            tokenizer=tokenizer,
-            mask_first_n_examples=1,
-        ),
+        # data_collator=ExampleMaskingDataCollator(
+        #     response_template=fmt['output_beg'],
+        #     mlm=False,
+        #     tokenizer=tokenizer,
+        #     mask_first_n_examples=1,
+        # ),
     )
 
     # Start training

@@ -70,8 +70,6 @@ def tokenize_dataset(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
         return tokenized
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
     print("---- Dataset tokenized. ----")
-    # print("Tokenized dataset max length:", max(len(x['input_ids']) for x in tokenized_datasets['train']))
-    # print("Tokenized dataset average length:", sum(len(x['input_ids']) for x in tokenized_datasets['train'])/len(tokenized_datasets['train']))
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
     return tokenized_datasets
 
