@@ -14,7 +14,7 @@ def get_env_vars_with_defaults():
     env_vars = constants.DEFAULT_ENV_VARS
     returned_vars = {}
     for var, default in env_vars.items():
-        returned_vars[var] = os.environ.get(var, default)["value"]
+        returned_vars[var] = os.environ.get(var, default["value"])
         returned_vars[var] = convert_env_var(returned_vars[var], default["type"])
     return returned_vars
 

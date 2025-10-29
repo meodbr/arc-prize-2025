@@ -38,7 +38,7 @@ def augment_dataset(dataset, tokenizer):
         data = load.augment_transformers_dataset(
             data,
             format=tokenizer_tools.get_architects_prompt_format(tokenizer),
-            multipliers = {
+            multipliers={
                 "color": ENV_VARS["AUG_COLOR_NUM"],
                 "order": ENV_VARS["AUG_ORDER_NUM"],
             },
@@ -57,7 +57,7 @@ def shrink_vocab(model, tokenizer):
     # Shrink vocab to only keep useful tokens
     print("Shrinking tokenizer vocabulary to only keep useful tokens...")
     keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
-    tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep_tok=keep_tok)
+    tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep=keep_tok)
     print(f"New tokenizer vocab size: {len(tokenizer)}")
 
 
@@ -151,8 +151,8 @@ def train():
     tokenized_datasets = tokenize_dataset(dataset_dict, tokenizer)
 
     # ---- PEFT ----
-    use_peft = ENV_VARS["USE_PEFT"]
-    if use_peft:
+    use_lora = ENV_VARS["USE_LORA"]
+    if use_lora:
         model = setup_peft_lora(model)
 
     # ---- TRAIN ----
