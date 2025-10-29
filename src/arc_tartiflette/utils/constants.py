@@ -97,7 +97,7 @@ DEFAULT_ENV_VARS = {
         "type": bool
     },
     "DO_AUG": {
-        "value": "True",
+        "value": "False",
         "type": bool
     },
     "AUG_COLOR_NUM": {

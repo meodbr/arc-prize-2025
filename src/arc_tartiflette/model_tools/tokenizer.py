@@ -8,46 +8,6 @@ import torch
 # https://github.com/da-fr/arc-prize-2024
 #
 
-class TokenizerWrapper:
-    def __init__(self, base_tokenizer):
-        self.tokenizer = base_tokenizer
-        self.vocab = base_tokenizer.get_vocab()
-        self.pad_token_id = base_tokenizer.pad_token_id or 0
-
-    def encode_grid(self, grid: np.ndarray):
-        """
-        Your custom logic:
-        - map each grid element to a token ID
-        - reuse existing tokenizer IDs where possible
-        """
-        # Example: flatten the grid and map numbers to vocab IDs
-        input_ids = [self.vocab.get(str(int(x)), self.tokenizer.unk_token_id) for x in grid.flatten()]
-        return input_ids
-
-    def __call__(self, data_dict):
-        """
-        data_dict: {"task_name": {"train": [[1, 2], [3, 4]], "test":...}
-        """
-        input_ids = self.encode_grid(data_dict["grid"])
-        
-        # Optionally include text tokens
-        if "text" in data_dict:
-            text_ids = self.tokenizer.encode(data_dict["text"], add_special_tokens=False)
-            input_ids.extend(text_ids)
-        
-        attention_mask = [1] * len(input_ids)
-        
-        # Convert to tensors and pad to max length
-        max_len = 128  # or dynamic
-        input_ids = input_ids[:max_len] + [self.pad_token_id] * (max_len - len(input_ids))
-        attention_mask = attention_mask[:max_len] + [0] * (max_len - len(attention_mask))
-        
-        return {
-            "input_ids": torch.tensor(input_ids),
-            "attention_mask": torch.tensor(attention_mask),
-            "labels": torch.tensor(data_dict.get("label", -100))  # -100 for ignore
-        }
-
 def get_or_map_special_tokens(data, mapping=None):
     tokens = set()
     if isinstance(data, dict):

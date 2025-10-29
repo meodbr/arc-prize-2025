@@ -34,6 +34,7 @@ def get_dataset(dataset_id: str):
 
 
 def augment_dataset(dataset, tokenizer):
+    print(f"Augmenting dataset (has {len(dataset['train'])} training examples)...")
     for split, data in dataset.items():
         data = load.augment_transformers_dataset(
             data,
@@ -43,6 +44,7 @@ def augment_dataset(dataset, tokenizer):
                 "order": ENV_VARS["AUG_ORDER_NUM"],
             },
         )
+    print(f"Dataset now has {len(dataset['train'])} training examples after augmentation.")
     return dataset
 
 
@@ -50,6 +52,7 @@ def get_tokenizer(model_name: str):
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=model_name)
     print(f"Tokenizer fast? {tokenizer.is_fast}")
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+    print(f"Tokenizer loaded. Vocab size: {len(tokenizer)}")
     return tokenizer
 
 
@@ -59,6 +62,7 @@ def shrink_vocab(model, tokenizer):
     keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
     tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep=keep_tok)
     print(f"New tokenizer vocab size: {len(tokenizer)}")
+    print(f"Model parameters after vocab shrink: {utils.count_parameters(model)/1e9:.3f}B")
 
 
 def tokenize_dataset(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
@@ -144,7 +148,7 @@ def train():
     # ---- PREPROCESS ----
     tokenizer = get_tokenizer(model_name)
     shrink_vocab(model, tokenizer)
-    if len(dataset_dict) < 10000 or ENV_VARS['DO_AUG']:
+    if len(dataset_dict["train"]) < 10000 or ENV_VARS['DO_AUG']:
         dataset_dict = augment_dataset(dataset_dict, tokenizer)
     tokenized_datasets = tokenize_dataset(dataset_dict, tokenizer)
 
