@@ -1,4 +1,5 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from unsloth import FastLanguageModel
 from peft import LoraConfig, TaskType, get_peft_model
 import torch
 from datasets import Dataset, DatasetDict, load_dataset
@@ -9,11 +10,12 @@ import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
+from arc_tartiflette.training.train_unsloth import train_unsloth
 from arc_tartiflette.config.settings import ENV_VARS
 
 
 def get_model(model_name: str, device: str):
-    model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name).to(
+    model = FastLanguageModel.from_pretrained(pretrained_model_name_or_path=model_name).to(
         device
     )
     print(f"---- Model {model_name} loaded. ----")
@@ -165,6 +167,8 @@ def train():
             train_transformers(model, tokenized_datasets, tokenizer, output_model=ENV_VARS["HF_OUTPUT_MODEL"])
         case "trl":
             train_trl(model, tokenized_datasets, tokenizer, output_model=ENV_VARS["HF_OUTPUT_MODEL"])
+        case "unsloth":
+            train_unsloth(model, tokenized_datasets, tokenizer, output_model=ENV_VARS["HF_OUTPUT_MODEL"])
         case _:
             train_transformers(model, tokenized_datasets, tokenizer, output_model=ENV_VARS["HF_OUTPUT_MODEL"])
     
