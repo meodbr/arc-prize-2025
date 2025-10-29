@@ -64,6 +64,10 @@ DEFAULT_ENV_VARS = {
         "value": "5e-5",
         "type": float
     },
+    "GRAD_ACC_STEPS": {
+        "value": "2",
+        "type": int
+    },
     "GRAD_CHPT": {
         "value": "False",
         "type": bool
