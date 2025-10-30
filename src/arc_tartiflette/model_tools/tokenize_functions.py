@@ -32,9 +32,7 @@ def make_completion_mask(input_ids: torch.Tensor, attention_mask: torch.Tensor, 
     # Optionally exclude the nth token itself:
     loss_mask = torch.where(cumsum > n, 1, 0)
 
-    print(attention_mask)
     if attention_mask != None and isinstance(attention_mask, torch.Tensor) and attention_mask.shape == loss_mask.shape:
-        print("LOOOOOOSSS")
         loss_mask = loss_mask & attention_mask
 
     return loss_mask

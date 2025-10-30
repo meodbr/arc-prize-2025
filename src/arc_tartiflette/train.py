@@ -113,6 +113,7 @@ def print_before_training_info(model, tokenized_datasets, use_bf16):
     print(f"Estimated time per epoch: {utils.estimate_time_per_epoch(model, batch_size, use_bf16, max_length, len(tokenized_datasets['train']))/60:.2f} minutes")
     print("Using Gradient Checkpointing:", use_grad_checkpointing)
     print(f"Output model name: {output_model_name}")
+    print(f"Optimizer : {ENV_VARS["OPTIM"]}")
 
 
 def test_model(model, tokenizer):
