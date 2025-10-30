@@ -6,7 +6,7 @@ import huggingface_hub as hf
 import os
 
 import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
-from arc_tartiflette.model_tools.tokenize_functions import make_completion_mask
+from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, frac_dataset_dict
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
@@ -14,9 +14,15 @@ from arc_tartiflette.config.settings import ENV_VARS
 
 
 def get_model(model_name: str, device: str):
-    model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name).to(
-        device
-    )
+    if ENV_VARS["USE_LORA"]:
+        model = AutoModelForCausalLM.from_pretrained(
+            pretrained_model_name_or_path=model_name,
+            tie_word_embeddings=False,
+        ).to(device)
+        print(f"Untying model head with embedding...")
+        model.lm_head.weight.data = model.model.embed_tokens.weight.data.clone()
+    else:
+        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name).to(device)
     print(f"---- Model {model_name} loaded. ----")
     print(f"Model has {utils.count_parameters(model)/1e9:.3f}B parameters.")
     return model
@@ -29,8 +35,9 @@ def get_dataset(dataset_id: str):
         "eval": hf_dataset["eval"],
     })
     print(f"---- Dataset {dataset_id} loaded. ----")
-    # print("Dataset average text length:", sum(len(x['text']) for x in dataset_dict['train'])/len(dataset_dict['train']))
-    # print(f"Dataset max_length: {max(len(x['text']) for x in dataset_dict['train'])}")
+    frac = ENV_VARS["DATASET_FRAC"]
+    if frac != 1.:
+        return frac_dataset_dict(dataset_dict, frac)
     return dataset_dict
 
 
@@ -64,39 +71,6 @@ def shrink_vocab(model, tokenizer):
     tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep=keep_tok)
     print(f"New tokenizer vocab size: {len(tokenizer)}")
     print(f"Model parameters after vocab shrink: {utils.count_parameters(model)/1e9:.3f}B")
-
-
-def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
-    print("Tokenizing dataset...")
-    max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
-
-    if tokenizer.bos_token != "<s>":
-        tokenizer.add_special_tokens({
-            "bos_token": "<s>",
-        })
-
-    if tokenizer.eos_token != "</s>":
-        tokenizer.add_special_tokens({
-            "eos_token": "</s>",
-        })
-    
-    assert tokenizer.bos_token_id == tokenizer("<s>")["input_ids"][0], f"original {tokenizer.bos_token_id} != {tokenizer('<s>')['input_ids'][0]} <s>"
-    assert tokenizer.eos_token_id == tokenizer("</s>")["input_ids"][0], f"original {tokenizer.eos_token_id} != {tokenizer('</s>')['input_ids'][0]} <s>"
-
-    def tokenize_function(example):
-        example
-        tokenized = tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length", return_tensors='pt')
-        tokenized["labels"] = tokenized["input_ids"].copy()
-        tokenized["completion_mask"] = make_completion_mask(
-            tokenized["input_ids"], 
-            special_token_id=tokenizer("I")["input_ids"][0],
-            n=1,
-        )
-        return tokenized
-    tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
-    print("---- Dataset tokenized. ----")
-    print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
-    return tokenized_datasets
 
 
 def setup_peft_lora(model):
@@ -169,7 +143,7 @@ def train():
     # ---- PREPROCESS ----
     tokenizer = get_tokenizer(model_name)
     shrink_vocab(model, tokenizer)
-    if len(dataset_dict["train"]) < 10000 or ENV_VARS['DO_AUG']:
+    if ENV_VARS['DO_AUG']:
         dataset_dict = augment_dataset(dataset_dict, tokenizer)
     tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
 
@@ -191,6 +165,10 @@ def train():
     
     # ---- PUSH ----
     model.push_to_hub(ENV_VARS["HF_OUTPUT_MODEL"])
+    merged_model = model.merge_and_unload()
+    merged_name = ENV_VARS["HF_OUTPUT_MODEL"] + ENV_VARS["HF_OUTPUT_MERGED_SUFFIX"]
+    merged_model.push_to_hub(merged_name)
+    tokenizer.push_to_hub(merged_name)
 
     # ---- TEST ----
     test_model(model, tokenizer)

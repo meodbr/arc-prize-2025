@@ -44,6 +44,10 @@ DEFAULT_ENV_VARS = {
         "value": "default_output_model",
         "type": str
     },
+    "HF_OUTPUT_MERGED_SUFFIX": {
+        "value": "_m",
+        "type": str
+    },
     "TOKENIZER_MAX_LENGTH": {
         "value": "2048",
         "type": int
@@ -55,6 +59,10 @@ DEFAULT_ENV_VARS = {
     "TRAIN_EPOCHS": {
         "value": "0.1",
         "type": float,
+    },
+    "TRAIN_STEPS": {
+        "value": "-1",
+        "type": int,
     },
     "BATCH_SIZE": {
         "value": "4",
@@ -107,5 +115,37 @@ DEFAULT_ENV_VARS = {
     "AUG_ORDER_NUM": {
         "value": "3",
         "type": int
+    },
+    "DATASET_FRAC": {
+        "value": "1.",
+        "type": float
+    },
+    "SAVE_EVERY_N_STEPS":{
+        "value": "1000",
+        "type": int
+    },
+    "OPTIM": {
+        "value": "adamw_8bit",
+        "type": str
+    },
+    "LR_SCHEDULER_TYPE": {
+        "value": "cosine",
+        "type": str
+    },
+    "WEIGHT_DECAY": {
+        "value": 0.0,
+        "type": float
+    },
+    "LR": {
+        "value": 5e-5,
+        "type": float
+    },
+    "EMBEDDING_LR": {
+        "value": 5e-5,
+        "type": float
+    },
+    "WARMUP_RATIO": {
+        "value": 0.25,
+        "type": float
     },
 }

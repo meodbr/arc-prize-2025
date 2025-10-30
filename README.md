@@ -20,6 +20,7 @@ Why? From my point of view:
 ### New implementation
 
 - [ ] Completion mask for base
+- [x] Lora Merge
 - [ ] Base batch inference
 - [ ] TTT Backbone
 

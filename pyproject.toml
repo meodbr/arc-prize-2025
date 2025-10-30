@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.10,<3.13"
 dependencies = [
     "transformers",
+    "bitsandbytes",
     "datasets",
     "torch>=2.4,<2.9",
     "huggingface-hub",
