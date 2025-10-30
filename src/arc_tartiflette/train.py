@@ -6,6 +6,7 @@ import huggingface_hub as hf
 import os
 
 import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
+from arc_tartiflette.model_tools.tokenize_functions import make_completion_mask
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
@@ -65,12 +66,32 @@ def shrink_vocab(model, tokenizer):
     print(f"Model parameters after vocab shrink: {utils.count_parameters(model)/1e9:.3f}B")
 
 
-def tokenize_dataset(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
+def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
     print("Tokenizing dataset...")
     max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
+
+    if tokenizer.bos_token != "<s>":
+        tokenizer.add_special_tokens({
+            "bos_token": "<s>",
+        })
+
+    if tokenizer.eos_token != "</s>":
+        tokenizer.add_special_tokens({
+            "eos_token": "</s>",
+        })
+    
+    assert tokenizer.bos_token_id == tokenizer("<s>")["input_ids"][0], f"original {tokenizer.bos_token_id} != {tokenizer('<s>')['input_ids'][0]} <s>"
+    assert tokenizer.eos_token_id == tokenizer("</s>")["input_ids"][0], f"original {tokenizer.eos_token_id} != {tokenizer('</s>')['input_ids'][0]} <s>"
+
     def tokenize_function(example):
-        tokenized = tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length")
+        example
+        tokenized = tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length", return_tensors='pt')
         tokenized["labels"] = tokenized["input_ids"].copy()
+        tokenized["completion_mask"] = make_completion_mask(
+            tokenized["input_ids"], 
+            special_token_id=tokenizer("I")["input_ids"][0],
+            n=1,
+        )
         return tokenized
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
     print("---- Dataset tokenized. ----")
@@ -150,7 +171,7 @@ def train():
     shrink_vocab(model, tokenizer)
     if len(dataset_dict["train"]) < 10000 or ENV_VARS['DO_AUG']:
         dataset_dict = augment_dataset(dataset_dict, tokenizer)
-    tokenized_datasets = tokenize_dataset(dataset_dict, tokenizer)
+    tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
 
     # ---- PEFT ----
     use_lora = ENV_VARS["USE_LORA"]

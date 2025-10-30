@@ -19,27 +19,34 @@ Why? From my point of view:
 
 ### New implementation
 
+- [ ] Completion mask for base
+- [ ] Base batch inference
+- [ ] TTT Backbone
+
 - [ ] Implement tokenizer wrapper for 2DPE
-- [ ] Create embeddings for all 8 sides
+- [ ] 2DPE batch inference
+
+- [ ] Create embeddings for ConvEmbedding
 - [ ] Tweak embedding layer for ConvEmbedding
 - [ ] Create tokenizer wrapper base for ConvEmbedding
 - [ ] Attention Mask for ConvEmbedding
 - [ ] Completion Mask for ConvEmbedding
-- [ ] Base batch inference
-- [ ] 2DPE batch inference
 - [ ] Convembedding inference
 
 ### Training
 
 - [ ] Train smol model shrinked embeddings
 - [ ] Train Big model Base
-- [ ] Debug 2DPE
 - [ ] Base TTT kaggle
+
+- [ ] Debug 2DPE
 - [ ] Train smol model 2DPE
 - [ ] Train Big model 2DPE
+
 - [ ] Train smol model ConvEmbedding
 - [ ] Train Big model ConvEmbedding
 - [ ] ConvEmbedding TTT kaggle
+
 - [ ] xformers flash attention training
 - [ ] xformers flash attention TTT kaggle
 
