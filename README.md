@@ -15,3 +15,38 @@ Why? From my point of view:
 * The main source of error in the LLM approach is being forced to predict pixels in writing order (left->right, top->down)
 * I just want to try it !
 
+## TODO list
+
+### New implementation
+
+- [ ] Implement tokenizer wrapper for 2DPE
+- [ ] Create embeddings for all 8 sides
+- [ ] Tweak embedding layer for ConvEmbedding
+- [ ] Create tokenizer wrapper base for ConvEmbedding
+- [ ] Attention Mask for ConvEmbedding
+- [ ] Completion Mask for ConvEmbedding
+- [ ] Base batch inference
+- [ ] 2DPE batch inference
+- [ ] Convembedding inference
+
+### Training
+
+- [ ] Train smol model shrinked embeddings
+- [ ] Train Big model Base
+- [ ] Debug 2DPE
+- [ ] Base TTT kaggle
+- [ ] Train smol model 2DPE
+- [ ] Train Big model 2DPE
+- [ ] Train smol model ConvEmbedding
+- [ ] Train Big model ConvEmbedding
+- [ ] ConvEmbedding TTT kaggle
+- [ ] xformers flash attention training
+- [ ] xformers flash attention TTT kaggle
+
+## Submissions objectives
+
+- Thursday: Big base + batched base, TTT?
+- Friday: Big 2DPE + TTT, batched 2DPE? 
+- Saturday: Big ConvEmbedding + TTT, inference...
+- Sunday: Big ConvEmbedding flash att + TTT, inference...
+- Monday: Fine-grained
