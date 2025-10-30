@@ -22,9 +22,27 @@ NEONEYE_DATASETS = {
     ]
 }
 
+def convert_lists_to_np_arrays(task):
+    if isinstance(task, list):
+        return [convert_lists_to_np_arrays(v) for v in task]
+    elif isinstance(task, dict):
+        new_dict = {}
+        for k, v in task.items():
+            if k in ["input", "output"]:
+                new_dict[k] = np.array(v)
+            else:
+                new_dict[k] = convert_lists_to_np_arrays(v)
+        return new_dict
+    else:
+        return task
+
+
 def load_arc_challenges(filename: str):
     with open(filename, 'r') as f:
-        return json.load(f)
+        json_data = json.load(f)
+        # Convert lists to numpy arrays
+        json_data = convert_lists_to_np_arrays(json_data)
+        return json_data
 
 def collapse_last_lists(obj):
     # Dump nicely formatted JSON first

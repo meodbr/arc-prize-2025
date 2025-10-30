@@ -1,21 +1,26 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import re
+import numpy as np
 
 from arc_tartiflette.inference.solver import Solver
 from arc_tartiflette.utils import load, constants
+from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
 
 class LMSolver(Solver):
     """
     Solver that uses a language model to solve the task
     """
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, model_revision: str=None):
         self.model_name = model_name
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", trust_remote_code=True)
+        self.model_revision = model_revision
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, revision=model_revision)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, revision=model_revision, device_map="auto", trust_remote_code=True)
+        self.format = get_architects_prompt_format(self.tokenizer)
+        self.alternate_eos_token_id = self.tokenizer.convert_tokens_to_ids(self.format.get("eos_token", "</s>"))
 
-    def solve(self, task: dict, logs="") -> list[list[int]]:
-        text = load.flatten_task(task, prompt=True)
-        inputs = self.tokenizer(text, return_tensors="pt").to(self.model.device)
+    def solve(self, task: dict, logs="") -> dict[str, np.ndarray]:
+        text = load.flatten_task(task, prompt=True, format=self.format)
+        inputs = self.tokenizer(text, return_tensors="pt", padding_side="left").to(self.model.device)
 
         outputs = self.model.generate(
             **inputs, 
@@ -23,158 +28,93 @@ class LMSolver(Solver):
             do_sample=True,
             top_p=0.9,
             temperature=0.8,
-            eos_token_id=[self.tokenizer.eos_token_id, 10219, 42], # also stop at "Input", ":"
+            eos_token_id=[self.tokenizer.eos_token_id, self.alternate_eos_token_id],
         )
         outputs = outputs[:, inputs.input_ids.shape[1]:]  # Remove input prompt
         output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        print(output_text)
+        print(f"    Output for task {task['task_name']}:")
+        print(output_text.replace(self.format.get("row_end", "\n"), '\n'))
         try:
             attempt_1 = self.extract_output_from_text(output_text)
         except Exception as e:
             logs += f"Error extracting output: {e}\nUsing auto-corrected extraction.\n"
-            attempt_1 = self.extract_output_from_text(output_text, auto_correct=True, strict_format=False)
+            attempt_1 = self.extract_output_from_text(output_text, auto_correct=True)
         return {
             "attempt_1": attempt_1,
             "attempt_2": attempt_1,
         }
 
-    import re
+
+    def solve_batch(self, tasks: dict, logs="") -> list[dict[str, np.ndarray]]:
+        texts = [load.flatten_task(task, prompt=True, format=self.format) for task in tasks]
+        inputs = self.tokenizer(texts, return_tensors="pt", padding=True, padding_side="left").to(self.model.device)
+
+        outputs = self.model.generate(
+            **inputs, 
+            max_new_tokens=1060, 
+            do_sample=True,
+            top_p=0.9,
+            temperature=0.8,
+            eos_token_id=[self.tokenizer.eos_token_id, self.alternate_eos_token_id],
+        )
+        results = []
+        for i, task in enumerate(tasks):
+            output_seq = outputs[i, inputs.input_ids.shape[1]:]  # Remove input prompt
+            output_text = self.tokenizer.decode(output_seq, skip_special_tokens=True)
+            print(f"    Output for task {i}:")
+            print(output_text.replace(self.format.get("row_end", "\n"), '\n'))
+            try:
+                attempt_1 = self.extract_output_from_text(output_text)
+            except Exception as e:
+                logs += f"Error extracting output for task {i}: {e}\nUsing auto-corrected extraction.\n"
+                attempt_1 = self.extract_output_from_text(output_text, auto_correct=True)
+            results.append({
+                "attempt_1": attempt_1,
+                "attempt_2": attempt_1,
+            })
+        return results
+
 
     def extract_output_from_text(
             self, 
             text: str,
-            format: dict = constants.DEFAULT_PROMPT_FORMAT,
             auto_correct: bool = False,
-            strict_format: bool = False
         ) -> list[list[int]]:
         """
         Extract the output rectangle grid from the model's generated text.
-        Uses the delimiters and tokens defined in `format`.
+        Recognises the first grid found in the text by recognizing digits.
+        Based on format['row_end'] and format['eos_token']. (or end of text if no eos_token found)
 
-        Example of expected format dict:
-        {
-            "preprompt": "",
-            "input_beg": "Input:\n",
-            "output_beg": "Output:\n",
-            "row_end": "\n",
-            "grid_end": "\n",
-            "bos_token": "",
-            "eos_token": "\n",
-        }
+        The model will give output as text in this format:
+        123{row_end}456{row_end}789{eos_token}
+
+        Args:
+            text (str): The generated text from the model.
+            format (dict): The prompt format dictionary.
+            auto_correct (bool): Whether to attempt auto-padding rows of unequal length.
+        Returns:
+            list[list[int]]: The extracted grid as a list of lists of integers.
         """
+        format = self.format
+        row_end = format.get("row_end", "\n")
+        eos_token = format.get("eos_token", "\n")
+        eos_index = text.find(eos_token)
+        first_digit_match = re.search(r'\d', text)
+        if eos_index != -1:
+            text = text[first_digit_match.start():eos_index] if first_digit_match else text[:eos_index]
+        rows = text.split(row_end)
 
-        output_beg = re.escape(format.get("output_beg", "Output:\n"))
-        input_beg = re.escape(format.get("input_beg", "Input:\n"))
+        grid_rows = []
+        for row in rows:
+            grid_rows.append([int(c) for c in row if c.isdigit()])
 
-        # Find the "Output" section dynamically
-        output_match = re.search(
-            rf"{output_beg}\s*(.*?)\s*(?:{input_beg}|$)", 
-            text, 
-            re.DOTALL
-        )
-
-        if output_match:
-            output_text = output_match.group(1).strip()
+        # Auto-correct: pad rows to the length of the longest row
+        if auto_correct:
+            max_length = max(len(r) for r in grid_rows)
+            for i in range(len(grid_rows)):
+                if len(grid_rows[i]) < max_length:
+                    grid_rows[i] += [0] * (max_length - len(grid_rows[i]))
         else:
-            if strict_format:
-                raise ValueError(f"Strict format enforced and no '{format.get('output_beg')}' section found in the text.")
-            else:
-                # fallback: try to extract first grid-like section
-                grid_match = re.search(r'(\d+\n)+\d+', text)
-                if not grid_match:
-                    raise ValueError("No grid-like structure found in the text.")
-                output_text = grid_match.group(0)
-
-        # Split lines safely
-        lines = output_text.splitlines()
-
-        # Determine most common line length
-        line_lengths = [len(line) for line in lines if line.strip()]
-        if not line_lengths:
-            raise ValueError("No valid lines found in the output section.")
-        expected_length = max(set(line_lengths), key=line_lengths.count)
-
-        # Build the numeric grid
-        grid = []
-        for line in lines:
-            stripped_line = line.strip()
-            if not stripped_line:
-                continue
-            if auto_correct:
-                # normalize line length
-                if len(stripped_line) < expected_length:
-                    stripped_line = stripped_line.ljust(expected_length, '0')
-                elif len(stripped_line) > expected_length:
-                    stripped_line = stripped_line[:expected_length]
-            elif len(stripped_line) != expected_length:
-                raise ValueError(f"Inconsistent line length in output: '{stripped_line}'")
-
-            row = [int(char) for char in stripped_line if char.isdigit()]
-            grid.append(row)
-
-        # Sanity checks
-        if not grid:
-            raise ValueError("Output grid is empty.")
-        if not all(len(row) == expected_length for row in grid):
-            raise ValueError("Inconsistent row lengths in the output grid.")
-
-        return grid
-    
-    def extract_output_from_text_old(self, 
-            text: str,
-            format: dict=constants.DEFAULT_PROMPT_FORMAT,
-            auto_correct: bool=False,
-            strict_format: bool=False
-        ) -> list[list[int]]:
-        """
-        Extract the output rectangle grid from the model's generated text.
-        Parameters:
-        - text (str): The generated text containing the output grid in the format:
-            "Output:\n123\n456\n789\n\n"
-
-        It must be robust against non regular outputs e.g. non consistent line lengths, extra text, etc.
-        """
-        # Find the "Output:" section
-        output_match = re.search(r'Output:\s*(.*?)\s*(Input:|$)', text, re.DOTALL)
-        if output_match:
-            output_text = output_match.group(1).strip()
-        else:
-            if strict_format:
-                raise ValueError("Strict format enforced and no 'Output:' section found in the text.")
-            else:
-                # find the first grid-like structure in the text
-                grid_match = re.search(r'(\d+\n)+\d+', text)
-                if not grid_match:
-                    raise ValueError("No grid-like structure found in the text.")
-                output_text = grid_match.group(0)
-
-        lines = output_text.splitlines()
-
-        # Determine the expected line length (most common length)
-        line_lengths = [len(line) for line in lines if line.strip()]
-        if not line_lengths:
-            raise ValueError("No valid lines found in the 'Output:' section.")
-        expected_length = max(set(line_lengths), key=line_lengths.count)
-
-        grid = []
-        for line in lines:
-            stripped_line = line.strip()
-            if not stripped_line:
-                continue  # Skip empty lines
-            if auto_correct:
-                # Adjust line to expected length
-                if len(stripped_line) < expected_length:
-                    stripped_line = stripped_line.ljust(expected_length, '0')  # Pad with '0's
-                elif len(stripped_line) > expected_length:
-                    stripped_line = stripped_line[:expected_length]  # Truncate
-            elif len(stripped_line) != expected_length:
-                raise ValueError(f"Inconsistent line length in output: '{stripped_line}'")
-
-            row = [int(char) for char in stripped_line if char.isdigit()]
-            grid.append(row)
-
-        assert all(len(row) == expected_length for row in grid), "Internal error: Inconsistent row lengths in the output grid."
-        assert len(grid) > 0, "Output grid is empty."
-        return grid
-
+            assert all(len(r) == len(grid_rows[0]) for r in grid_rows), "Inconsistent row lengths in extracted grid."
         
+        return np.array(grid_rows)

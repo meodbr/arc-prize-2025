@@ -99,6 +99,8 @@ def peek_dict(data: dict, num_tasks: int=1, show_predicted: bool=False) -> None:
     - data (dict): The ARC dataset containing multiple tasks.
     - num_tasks (int): Number of tasks to visualize.
     """
+    if num_tasks > len(data):
+        num_tasks = len(data)
     sampled_tasks = dict(random.sample(list(data.items()), num_tasks))
     for task_name, task in sampled_tasks.items():
         print(f"Visualizing task: {task_name}")

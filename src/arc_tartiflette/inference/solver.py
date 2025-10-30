@@ -1,6 +1,7 @@
 from typing import Any
 import os
 import numpy as np
+from tqdm import tqdm
 
 from arc_tartiflette.utils import constants
 from arc_tartiflette.utils import load
@@ -39,17 +40,73 @@ class Solver:
     def __init__(self):
         pass
     
-    def solve_all_datasets(self, datasets_dict: dict[str, Any]) -> list[SolverRunCard]:
+    def solve_all_datasets(self, datasets_dict: dict[str, Any], batch_size: int=None) -> list[SolverRunCard]:
         cards = {}
         for d_name, d in datasets_dict.items():
             card = self.solve_dataset(
                 dataset=d,
                 dataset_name=d_name,
+                batch_size=batch_size,
             )
             cards[d_name] = card
         return cards
 
-    def solve_dataset(self, dataset: dict[str, Any], dataset_name="dataset") -> SolverRunCard:
+
+    def replicate_multiple_tests_for_task(self, task: dict) -> list[dict]:
+        """
+        Replicate a task with multiple test cases into multiple tasks with single test cases
+        """
+        replicated_tasks = []
+        for i in range(len(task["test"])):
+            replicated_task = {
+                "train": task["train"],
+                "test": [task["test"][i]],
+            }
+            replicated_tasks.append(replicated_task)
+        return replicated_tasks
+    
+
+    def replicate_multiple_tests(self, dataset: dict[str, Any]) -> dict[str, dict]:
+        """
+        Replicate all tasks in a dataset with multiple test cases into multiple tasks with single test cases
+        """
+        replicated_dataset = []
+        for task_name, task in dataset.items():
+            replicated_tasks = self.replicate_multiple_tests_for_task(task)
+            for i, replicated_task in enumerate(replicated_tasks):
+                replicated_task["task_name"] = task_name
+                replicated_task["test_index"] = i
+                replicated_dataset.append(replicated_task)
+        return replicated_dataset
+
+
+    def compute_scores(self, card: SolverRunCard) -> None:
+        """
+        Compute the number of tasks and tests solved in a score card
+        """
+        assert card.is_result_known, "Cannot compute scores if results are not known"
+        card.tasks_solved = 0
+        card.tests_solved = 0
+        for task_name, tests_attempts in card.submission.items():
+            task_solved = True
+            for test_index, attempts in enumerate(tests_attempts):
+                if np.array_equal(attempts["attempt_1"], np.array(card.dataset[task_name]["test"][test_index]["output"])):
+                    card.tests_solved += 1
+                elif np.array_equal(attempts["attempt_2"], np.array(card.dataset[task_name]["test"][test_index]["output"])):
+                    card.tests_solved += 1
+                else:
+                    task_solved = False
+
+            card.is_task_solved[task_name] = task_solved
+            if task_solved:
+                card.tasks_solved += 1
+        
+        card.test_score = card.tests_solved / card.num_tests if card.num_tests > 0 else 0.
+        card.score = card.tasks_solved / card.num_tasks if card.num_tasks > 0 else 0.
+
+
+
+    def solve_dataset(self, dataset: dict[str, Any], dataset_name="dataset", batch_size: int=None) -> SolverRunCard:
         """
         Function wrapping a dataset solving run
         """
@@ -59,14 +116,36 @@ class Solver:
             dataset=dataset,
             is_result_known=is_result_known,
         )
-        print(f"Solving dataset {dataset_name} with {len(dataset)} tasks. Result known: {is_result_known}")
-        for task_name, task in dataset.items():
-            print(f"  Solving task {task_name}...")
-            self._solve_task(task, score_card, task_name)
-        
+
+        # Prepare submission dict
+        for task_name in dataset.keys():
+            score_card.submission[task_name] = [None for _ in dataset[task_name]["test"]]
+
+        # Replicate each task having n test cases into n tasks with 1 test case
+        score_card.num_tasks = len(dataset)
+        dataset_replicated = self.replicate_multiple_tests(dataset)
+        score_card.num_tests = len(dataset_replicated)
+
+        # Sort replicated dataset by size (smallest first) to optimize batching
+        dataset_replicated.sort(key=lambda t: sum((ex['input'].shape[0]*ex['input'].shape[1] for ex in t['train'] + t['test'])))
+
+        # Fill submission dict
+        if batch_size is not None:
+            # Batch solving
+            print(f"Solving dataset {dataset_name} with {len(dataset)} tasks in batches of {batch_size}. Result known: {is_result_known}")
+            for i in tqdm(range(0, len(dataset_replicated), batch_size)):
+                print(f"  Solving batch of tasks {i} to {min(i+batch_size, len(dataset_replicated))}...")
+                batch = dataset_replicated[i:i+batch_size]
+                self._solve_batch(batch, score_card)
+        else:
+            print(f"Solving dataset {dataset_name} with {len(dataset)} tasks. Result known: {is_result_known}")
+            for task in tqdm(dataset_replicated):
+                print(f"  Solving task {task['task_name']}...")
+                self._solve_task(task, score_card)
+        # Compute scores based on card.submission
+
         if score_card.is_result_known:
-            score_card.score = score_card.tasks_solved / score_card.num_tasks
-            score_card.test_score = score_card.tests_solved / score_card.num_tests
+            self.compute_scores(score_card)
             score_card.summary = f"""-------- {dataset_name} solving run summary ---------
 {score_card.num_tasks} tasks in dataset
 {score_card.num_tests} tests in dataset
@@ -77,66 +156,58 @@ class Solver:
 """
         else:
             score_card.summary = f"""-------- {dataset_name} solving run summary ---------
+{score_card.num_tasks} tasks in dataset
+{score_card.num_tests} tests in dataset
 Result unknown so no score computed
 """
         score_card.logs = score_card.summary + "\n\nLOGS:\n" + score_card.logs
         return score_card
 
-    
-    def _solve_task(self, task: dict[str, Any], card: SolverRunCard, task_name: str):
+
+    def _solve_task(self, task: dict, card: SolverRunCard):
         """
-        Function wrapping the solving and comparing to result of a task
+        Function wrapping the solving and comparing to result of a single task
         """
-        tests = task["test"]
-        every_test_solved = True
-        results = []
-        for i, test in enumerate(tests):
-            # Solving task
-            task_sent = {
-                "train": task["train"],
-                "test": [test],
-            }
-            try:
-                logs = ""
-                attempts = self.solve(
-                    task=task_sent,
-                    logs=logs,
-                )
-                assert len(attempts) <= 2, "Too many attempts made"
-                if logs:
-                    card.logs += f"Task {task_name}, test {i} logs:\n{logs}\n"
-            except Exception as e:
-                attempts = DEFAULT_ATTEMPTS
-                card.logs += f"Task {task_name}, test {i} failed with error:\n{e}\n"
-
-            results.append(attempts)
-            if "attempt_1" in attempts:
-                task["test"][i]["predicted_output"] = attempts["attempt_1"]
-            if "attempt_2" in attempts:
-                task["test"][i]["predicted_output_2"] = attempts["attempt_2"]
-
-            # Update card info depending on result
-            if card.is_result_known:
-                is_solved = any(
-                    attempt is not None and np.array_equal(test["output"], attempt)
-                    for attempt in attempts.values()
-                )
-
-                if is_solved:
-                    card.tests_solved += 1
-                else:
-                    every_test_solved = False
-                card.num_tests += 1
+        try:
+            logs = ""
+            attempts = self.solve(task, logs)
+            if logs:
+                card.logs += f"Task {task['task_name']} logs:\n{logs}\n"
+            assert "attempt_1" in attempts and "attempt_2" in attempts, "Attempts missing keys"
+        except Exception as e:
+            card.logs += f"Error solving task {task['task_name']}: {e}\n"
+            attempts = DEFAULT_ATTEMPTS
         
-        # Store solver results
-        card.submission[task_name] = results
+        task_name = task["task_name"]
+        test_index = task["test_index"]
+        card.submission[task_name][test_index] = attempts
+        card.dataset[task_name]["test"][test_index]["predicted_output"] = attempts["attempt_1"]
+        card.dataset[task_name]["test"][test_index]["predicted_output_2"] = attempts["attempt_2"]
+
+
+    def _solve_batch(self, tasks: list[dict], card: SolverRunCard):
+        """
+        Function wrapping the solving and comparing to result of a batch of tasks
+        """
+        try:
+            logs = ""
+            attempts_list = self.solve_batch(tasks, logs)
+            if logs:
+                card.logs += f"Batch logs:\n{logs}\n"
+            assert len(attempts_list) == len(tasks), "Batch attempts length mismatch"
+            for attempts in attempts_list:
+                assert "attempt_1" in attempts and "attempt_2" in attempts, "Batch attempts missing keys"
+        except Exception as e:
+            card.logs += f"Error solving batch of tasks: {e}\n"
+            attempts_list = [DEFAULT_ATTEMPTS for _ in tasks]
         
-        # Update task-level card info
-        if card.is_result_known:
-            card.is_task_solved[task_name] = every_test_solved
-            if every_test_solved:
-                card.tasks_solved += 1
-            card.num_tasks += 1
+        for i, task in enumerate(tasks):
+            attempts = attempts_list[i]
+            task_name = task["task_name"]
+            test_index = task["test_index"]
+            card.submission[task_name][test_index] = attempts
+            card.dataset[task_name]["test"][test_index]["predicted_output"] = attempts["attempt_1"]
+            card.dataset[task_name]["test"][test_index]["predicted_output_2"] = attempts["attempt_2"]
 
 
     def solve(self, task) -> list[np.ndarray]:
@@ -144,3 +215,9 @@ Result unknown so no score computed
         Function containing the core logic of arc solving
         """
         raise NotImplementedError("Solve must be implemented in a subclass of Solver")
+    
+    def solve_batch(self, tasks: list[dict]) -> list[list[np.ndarray]]:
+        """
+        Function containing the core logic of arc solving in batch mode
+        """
+        raise NotImplementedError("Solve batch must be implemented in a subclass of Solver")

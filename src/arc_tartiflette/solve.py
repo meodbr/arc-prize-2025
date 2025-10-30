@@ -8,8 +8,11 @@ def solve_all_kaggle(
         input_dir: str,
         output_dir: str,
         model_name: str,
+        model_revision: str=None,
         frac: float=1.,
-        full_test: bool=False
+        full_test: bool=False,
+        only_train: bool=False,
+        batch_size: int=None,
     ) -> None:
     """
     Main function to solve ARC challenges with a prepared solution.
@@ -22,8 +25,16 @@ def solve_all_kaggle(
     os.makedirs(save_dir, exist_ok=True)
     os.makedirs(figures_dir, exist_ok=True)
 
-    solver = LMSolver(model_name=model_name)
+    solver = LMSolver(
+        model_name=model_name,
+        model_revision=model_revision
+    )
     datasets_dict_full = load.load_challenges_kaggle_format(input_dir)
+
+    if only_train:
+        datasets_dict_full = {
+            "train": datasets_dict_full["train"]
+        }
 
     # Sample a subset of the datasets for faster testing
     if frac < 1.:
@@ -34,7 +45,7 @@ def solve_all_kaggle(
     if full_test:
         datasets_dict["test"] = datasets_dict_full["test"]
 
-    cards = solver.solve_all_datasets(datasets_dict)
+    cards = solver.solve_all_datasets(datasets_dict, batch_size=batch_size)
     for card in cards.values():
         print(card.summary)
     # Save logs
@@ -43,8 +54,9 @@ def solve_all_kaggle(
             f.write(card.logs)
 
     # Submit solution
-    load.save_arc_challenges(cards["test"].submission, submission_file)
-    print(f"Solution submitted to {submission_file}")
+    if "test" in cards.keys():
+        load.save_arc_challenges(cards["test"].submission, submission_file)
+        print(f"Solution submitted to {submission_file}")
 
     # Save additionnal output files
     load.save_arc_challenges(datasets_dict, solved_file)
@@ -55,7 +67,7 @@ def solve_all_kaggle(
     )
     plot.peek_nested_dicts(
         data=datasets_dict,
-        num_tasks_per_dataset=1,
+        num_tasks_per_dataset=2,
         show_predicted=True,
     )
 
@@ -63,12 +75,18 @@ if __name__ == "__main__":
     input_dir = "data/kaggle_input"
     output_dir = "data/kaggle_working"
     # model_name = "HuggingFaceTB/SmolLM2-135M"
-    model_name = "meo-des/smollm2_arc_kaggle_without_trl"
+    model_name = "meo-des/smollm2_arc_main_base_m"
+    model_revision = None
+    only_train = True
+    batch_size = None
 
-    frac = 0.001  # Fraction of dataset to use for testing
+    frac = 0.02  # Fraction of dataset to use for testin
     solve_all_kaggle(
         input_dir=input_dir,
         output_dir=output_dir,
         model_name=model_name,
-        frac=frac
+        model_revision=model_revision,
+        frac=frac,
+        only_train=only_train,
+        batch_size=batch_size,
     )
