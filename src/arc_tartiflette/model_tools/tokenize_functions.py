@@ -5,7 +5,7 @@ from datasets import DatasetDict
 from arc_tartiflette.config.settings import ENV_VARS
 
 
-def make_completion_mask(input_ids: torch.Tensor, special_token_id: int, n: int) -> torch.Tensor:
+def make_completion_mask(input_ids: torch.Tensor, attention_mask: torch.Tensor, special_token_id: int, n: int) -> torch.Tensor:
     """
     Creates a mask that zeros out all tokens up to and including the nth occurrence
     of a specific token per sequence.
@@ -31,6 +31,11 @@ def make_completion_mask(input_ids: torch.Tensor, special_token_id: int, n: int)
     # Zero out positions before the nth occurrence
     # Optionally exclude the nth token itself:
     loss_mask = torch.where(cumsum > n, 1, 0)
+
+    print(attention_mask)
+    if attention_mask != None and isinstance(attention_mask, torch.Tensor) and attention_mask.shape == loss_mask.shape:
+        print("LOOOOOOSSS")
+        loss_mask = loss_mask & attention_mask
 
     return loss_mask
 
@@ -68,6 +73,7 @@ def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
         tokenized["labels"] = tokenized["input_ids"].clone()
         tokenized["completion_mask"] = make_completion_mask(
             tokenized["input_ids"], 
+            tokenized["attention_mask"], 
             special_token_id=tokenizer("I")["input_ids"][0],
             n=1,
         )
