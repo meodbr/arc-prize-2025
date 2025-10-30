@@ -23,7 +23,6 @@ def train_trl(
         per_device_train_batch_size=ENV_VARS["BATCH_SIZE"],
         per_device_eval_batch_size=ENV_VARS["BATCH_SIZE"],
         gradient_accumulation_steps=ENV_VARS["GRAD_ACC_STEPS"],
-        evaluation_strategy="epoch",
         save_strategy="epoch",
         logging_steps=50,
         learning_rate=ENV_VARS["LR"],
@@ -42,11 +41,8 @@ def train_trl(
     trainer = SFTTrainer(
         model=model,
         args=training_args,
-        tokenizer=tokenizer,
         train_dataset=tokenized_datasets["train"],
         eval_dataset=tokenized_datasets["eval"],
-        dataset_text_field="text",
-        packing=False,
         # data_collator=ExampleMaskingDataCollator(
         #     response_template=fmt['output_beg'],
         #     mlm=False,
