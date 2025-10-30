@@ -85,7 +85,7 @@ DEFAULT_ENV_VARS = {
         "type": bool
     },
     "LORA_TARGET_MODULES": {
-        "value": "q_proj,k_proj,v_proj,o_proj,up_proj,down_proj",
+        "value": "q_proj,k_proj,v_proj,o_proj,up_proj,down_proj,embed_tokens,lm_head",
         "type": list[str]
     },
     "LORA_R": {

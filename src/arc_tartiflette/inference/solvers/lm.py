@@ -10,9 +10,15 @@ class LMSolver(Solver):
     """
     Solver that uses a language model to solve the task
     """
-    def __init__(self, model_name: str, model_revision: str=None):
+    def __init__(
+            self,
+            model_name: str,
+            model_revision: str=None,
+            do_attempts: bool = True,
+        ):
         self.model_name = model_name
         self.model_revision = model_revision
+        self.do_attempts = do_attempts
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, revision=model_revision)
         self.model = AutoModelForCausalLM.from_pretrained(model_name, revision=model_revision, device_map="auto", trust_remote_code=True)
         self.format = get_architects_prompt_format(self.tokenizer)
@@ -22,6 +28,7 @@ class LMSolver(Solver):
         text = load.flatten_task(task, prompt=True, format=self.format)
         inputs = self.tokenizer(text, return_tensors="pt", padding_side="left").to(self.model.device)
 
+        inputs.pop("token_type_ids", None) # Remove token_type_ids if present to avoid warnings
         outputs = self.model.generate(
             **inputs, 
             max_new_tokens=1060, 
@@ -49,6 +56,8 @@ class LMSolver(Solver):
         texts = [load.flatten_task(task, prompt=True, format=self.format) for task in tasks]
         inputs = self.tokenizer(texts, return_tensors="pt", padding=True, padding_side="left").to(self.model.device)
 
+        inputs.pop("token_type_ids", None) # Remove token_type_ids if present to avoid warnings
+        print(f"    Generating outputs for batch of {len(tasks)} tasks...")
         outputs = self.model.generate(
             **inputs, 
             max_new_tokens=1060, 

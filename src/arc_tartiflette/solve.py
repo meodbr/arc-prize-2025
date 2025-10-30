@@ -37,6 +37,7 @@ def solve_all_kaggle(
         }
 
     # Sample a subset of the datasets for faster testing
+    datasets_dict = {}
     if frac < 1.:
         datasets_dict = {
             k: load.sample_dict(v, int(len(v)*frac)+1) 
@@ -75,12 +76,13 @@ if __name__ == "__main__":
     input_dir = "data/kaggle_input"
     output_dir = "data/kaggle_working"
     # model_name = "HuggingFaceTB/SmolLM2-135M"
-    model_name = "meo-des/smollm2_arc_main_base_m"
+    # model_name = "meo-des/smollm2_arc_main_base_m"
+    model_name = "meo-des/nemo_arc_main_base_1s10e_m"
     model_revision = None
     only_train = True
-    batch_size = None
+    batch_size = 1
 
-    frac = 0.02  # Fraction of dataset to use for testin
+    frac = 0.0001  # Fraction of dataset to use for testin
     solve_all_kaggle(
         input_dir=input_dir,
         output_dir=output_dir,
