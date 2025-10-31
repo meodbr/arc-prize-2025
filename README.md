@@ -21,11 +21,13 @@ Why? From my point of view:
 
 - [x] Completion mask for base
 - [x] Lora Merge
-- [ ] Base batch inference
-- [ ] TTT Backbone
+- [x] Base batch inference
 
+- [ ] TTT Backbone
 - [ ] Implement tokenizer wrapper for 2DPE
 - [ ] 2DPE batch inference
+- [x] Inference from hf dataset
+- [x] Test after train
 
 - [ ] Create embeddings for ConvEmbedding
 - [ ] Tweak embedding layer for ConvEmbedding
@@ -36,14 +38,18 @@ Why? From my point of view:
 
 ### Training
 
-- [ ] Train smol model shrinked embeddings
-- [ ] Train Big model Base
-- [ ] Base TTT kaggle
+- [x] Train smol model shrinked embeddings
+- [x] Train Big model Base
 
+- [ ] Base TTT kaggle
+- [ ] Test bigger context
+- [ ] Tweak Hyperparams
 - [ ] Debug 2DPE
 - [ ] Train smol model 2DPE
 - [ ] Train Big model 2DPE
 
+- [ ] Test Q-8
+- [ ] Test Q-4
 - [ ] Train smol model ConvEmbedding
 - [ ] Train Big model ConvEmbedding
 - [ ] ConvEmbedding TTT kaggle

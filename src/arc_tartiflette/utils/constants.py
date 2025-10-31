@@ -89,7 +89,7 @@ DEFAULT_ENV_VARS = {
         "type": list[str]
     },
     "LORA_R": {
-        "value": "32",
+        "value": "128",
         "type": int
     },
     "LORA_ALPHA": {
@@ -147,5 +147,17 @@ DEFAULT_ENV_VARS = {
     "WARMUP_RATIO": {
         "value": 0.25,
         "type": float
+    },
+    "USE_COMPLETION_MASK": {
+        "value": "True",
+        "type": bool
+    },
+    "NUM_SOLVE_TESTS": {
+        "value": "100",
+        "type": int
+    },
+    "SOLVE_BATCH_SIZE": {
+        "value": "4",
+        "type": int
     },
 }

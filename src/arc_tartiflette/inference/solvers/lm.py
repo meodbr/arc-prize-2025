@@ -12,15 +12,20 @@ class LMSolver(Solver):
     """
     def __init__(
             self,
-            model_name: str,
+            model_name: str="",
             model_revision: str=None,
+            model: AutoModelForCausalLM=None,
+            tokenizer: AutoTokenizer=None,
             do_attempts: bool = True,
         ):
-        self.model_name = model_name
-        self.model_revision = model_revision
         self.do_attempts = do_attempts
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, revision=model_revision)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name, revision=model_revision, device_map="auto", trust_remote_code=True)
+        self.model = model
+        self.tokenizer = tokenizer
+        if model == None or tokenizer == None:
+            self.model_name = model_name
+            self.model_revision = model_revision
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, revision=model_revision)
+            self.model = AutoModelForCausalLM.from_pretrained(model_name, revision=model_revision, device_map="auto", trust_remote_code=True)
         self.format = get_architects_prompt_format(self.tokenizer)
         self.alternate_eos_token_id = self.tokenizer.convert_tokens_to_ids(self.format.get("eos_token", "</s>"))
 
@@ -63,7 +68,7 @@ class LMSolver(Solver):
             max_new_tokens=1060, 
             do_sample=True,
             top_p=0.9,
-            temperature=0.8,
+            temperature=0.15,
             eos_token_id=[self.tokenizer.eos_token_id, self.alternate_eos_token_id],
         )
         results = []

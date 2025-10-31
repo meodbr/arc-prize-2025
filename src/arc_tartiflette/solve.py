@@ -1,4 +1,5 @@
 import os
+from transformers import AutoModel, AutoTokenizer
 
 from arc_tartiflette.inference.solvers.naive_copy import NaiveCopySolver
 from arc_tartiflette.inference.solvers.lm import LMSolver
@@ -7,12 +8,14 @@ from arc_tartiflette.utils import load, plot
 def solve_all_kaggle(
         input_dir: str,
         output_dir: str,
-        model_name: str,
+        model_name: str=None,
         model_revision: str=None,
         frac: float=1.,
         full_test: bool=False,
         only_train: bool=False,
         batch_size: int=None,
+        model: AutoModel=None,
+        tokenizer: AutoTokenizer=None,
     ) -> None:
     """
     Main function to solve ARC challenges with a prepared solution.
@@ -27,7 +30,9 @@ def solve_all_kaggle(
 
     solver = LMSolver(
         model_name=model_name,
-        model_revision=model_revision
+        model_revision=model_revision,
+        model=model,
+        tokenizer=tokenizer,
     )
     datasets_dict_full = load.load_challenges_kaggle_format(input_dir)
 
@@ -77,12 +82,13 @@ if __name__ == "__main__":
     output_dir = "data/kaggle_working"
     # model_name = "HuggingFaceTB/SmolLM2-135M"
     # model_name = "meo-des/smollm2_arc_main_base_m"
-    model_name = "meo-des/nemo_arc_main_base_1s10e_m"
+    # model_name = "meo-des/nemo_arc_main_base_1s10e_m"
+    model_name = "meo-des/smollm2_arc_main_base_4096_2e_m"
     model_revision = None
     only_train = True
     batch_size = 1
 
-    frac = 0.0001  # Fraction of dataset to use for testin
+    frac = 0.001  # Fraction of dataset to use for testin
     solve_all_kaggle(
         input_dir=input_dir,
         output_dir=output_dir,

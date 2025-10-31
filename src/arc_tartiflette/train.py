@@ -11,6 +11,7 @@ from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
 from arc_tartiflette.config.settings import ENV_VARS
+from arc_tartiflette.inference.solvers.lm import LMSolver
 
 
 def get_model(model_name: str, device: str):
@@ -33,6 +34,7 @@ def get_dataset(dataset_id: str):
     dataset_dict = DatasetDict({
         "train": hf_dataset["train"],
         "eval": hf_dataset["eval"],
+        "test": hf_dataset["test"],
     })
     print(f"---- Dataset {dataset_id} loaded. ----")
     frac = ENV_VARS["DATASET_FRAC"]
@@ -116,8 +118,24 @@ def print_before_training_info(model, tokenized_datasets, use_bf16):
     print(f"Optimizer : {ENV_VARS['OPTIM']}")
 
 
-def test_model(model, tokenizer):
-    print("--- TEST ----")
+def test_model_on_dataset(model, tokenizer, dataset_dict):
+    print("---- TEST SOLVE ----")
+    num_solve_tests = ENV_VARS["NUM_SOLVE_TESTS"]
+    batch_size = ENV_VARS["SOLVE_BATCH_SIZE"]
+    solver = LMSolver(
+        model=model,
+        tokenizer=tokenizer,
+    )
+
+    cards = {}
+    for split in ["train", "test"]:
+        hf_dataset = dataset_dict[split].shuffle(seed=42).select(range(num_solve_tests//2)),
+        cards[split] = solver.solve_hf_dataset(hf_dataset, split, batch_size)
+        print(cards[split].summary)
+
+
+def test_model_generation(model, tokenizer):
+    print("---- TEST GENERATION ----")
     pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
 
     # Test prompt
@@ -128,7 +146,9 @@ def test_model(model, tokenizer):
     print(output[0]["generated_text"])
 
 
-def train():
+def train(
+    push=True,
+    ):
     # ---- DEVICE ----
     gpu_availability.print_gpu_availability()
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -165,14 +185,19 @@ def train():
             train_transformers(model, tokenized_datasets, tokenizer, output_model=ENV_VARS["HF_OUTPUT_MODEL"])
     
     # ---- PUSH ----
-    model.push_to_hub(ENV_VARS["HF_OUTPUT_MODEL"])
-    merged_model = model.merge_and_unload()
-    merged_name = ENV_VARS["HF_OUTPUT_MODEL"] + ENV_VARS["HF_OUTPUT_MERGED_SUFFIX"]
-    merged_model.push_to_hub(merged_name)
-    tokenizer.push_to_hub(merged_name)
+    if push:
+        # model.push_to_hub(ENV_VARS["HF_OUTPUT_MODEL"])
+        # merged_model = model.merge_and_unload()
+        # merged_name = ENV_VARS["HF_OUTPUT_MODEL"] + ENV_VARS["HF_OUTPUT_MERGED_SUFFIX"]
+        # merged_model.push_to_hub(merged_name)
+        # tokenizer.push_to_hub(merged_name)
+        pass
 
     # ---- TEST ----
-    test_model(model, tokenizer)
+    test_model_on_dataset(model, tokenizer, dataset_dict)
+    test_model_generation(model, tokenizer)
+    
+    return 
 
 if __name__ == "__main__":
     train()
