@@ -129,8 +129,9 @@ def test_model_on_dataset(model, tokenizer, dataset_dict):
 
     cards = {}
     for split in ["train", "test"]:
-        hf_dataset = dataset_dict[split].shuffle(seed=42).select(range(num_solve_tests//2)),
+        hf_dataset = dataset_dict[split].shuffle(seed=42).select(range(num_solve_tests//2))
         cards[split] = solver.solve_hf_dataset(hf_dataset, split, batch_size)
+    for split in ["train", "test"]:
         print(cards[split].summary)
 
 
@@ -186,11 +187,11 @@ def train(
     
     # ---- PUSH ----
     if push:
-        # model.push_to_hub(ENV_VARS["HF_OUTPUT_MODEL"])
-        # merged_model = model.merge_and_unload()
-        # merged_name = ENV_VARS["HF_OUTPUT_MODEL"] + ENV_VARS["HF_OUTPUT_MERGED_SUFFIX"]
-        # merged_model.push_to_hub(merged_name)
-        # tokenizer.push_to_hub(merged_name)
+        model.push_to_hub(ENV_VARS["HF_OUTPUT_MODEL"])
+        merged_model = model.merge_and_unload()
+        merged_name = ENV_VARS["HF_OUTPUT_MODEL"] + ENV_VARS["HF_OUTPUT_MERGED_SUFFIX"]
+        merged_model.push_to_hub(merged_name)
+        tokenizer.push_to_hub(merged_name)
         pass
 
     # ---- TEST ----

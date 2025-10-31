@@ -184,12 +184,12 @@ def dict_to_transformers_dataset(dataset: dict, format: dict=constants.DEFAULT_P
     return Dataset.from_list(flatten_dataset(dataset, format=format))
 
 def transformers_dataset_to_dict(hf_dataset: Dataset) -> dict:
-    dataset = {f"task_{i}": task[i]["task"] for i, task in enumerate(hf_dataset)}
+    dataset = {f"task_{i}": task["task"] for i, task in enumerate(hf_dataset)}
     for task in dataset.values():
         for ex in task["train"] + task["test"]:
             for key, grid in ex.items():
                 if key in ["input", "output"]:
-                    ex[key] = np.array(grid)
+                        ex[key] = np.array(grid)
     return dataset
 
 def sample_dict(data: dict, num_samples: int) -> dict:
