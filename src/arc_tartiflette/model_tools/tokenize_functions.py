@@ -96,6 +96,6 @@ def frac_dataset_dict(dataset_dict: DatasetDict, frac=0.1, seed=42):
     small_splits = {}
     for split_name, ds in dataset_dict.items():
         # train_test_split returns a dict with 'train' and 'test'
-        small_ds = ds.train_test_split(test_size=(1-frac), seed=seed)["train"]
+        small_ds = ds.train_test_split(test_size=frac, seed=seed)["test"]
         small_splits[split_name] = small_ds
     return DatasetDict(small_splits)

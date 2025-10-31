@@ -14,8 +14,10 @@ from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.inference.solvers.lm import LMSolver
 
 
-def get_model(model_name: str, device: str):
-    if ENV_VARS["USE_LORA"]:
+def get_model(model_name: str, device: str, untie_lm_head: bool=None):
+    if untie_lm_head is None:
+        untie_lm_head = ENV_VARS["USE_LORA"]
+    if untie_lm_head:
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=model_name,
             tie_word_embeddings=False,
@@ -43,9 +45,11 @@ def get_dataset(dataset_id: str):
     return dataset_dict
 
 
-def augment_dataset(dataset, tokenizer):
+def augment_dataset(dataset, tokenizer, only_splits: list=None):
     print(f"Augmenting dataset (has {len(dataset['train'])} training examples)...")
     for split, data in dataset.items():
+        if only_splits and split not in only_splits:
+            continue
         data = load.augment_transformers_dataset(
             data,
             format=tokenizer_tools.get_architects_prompt_format(tokenizer),
@@ -118,7 +122,7 @@ def print_before_training_info(model, tokenized_datasets, use_bf16):
     print(f"Optimizer : {ENV_VARS['OPTIM']}")
 
 
-def test_model_on_dataset(model, tokenizer, dataset_dict):
+def test_model_on_dataset(model, tokenizer, dataset_dict, splits: list=None):
     print("---- TEST SOLVE ----")
     num_solve_tests = ENV_VARS["NUM_SOLVE_TESTS"]
     batch_size = ENV_VARS["SOLVE_BATCH_SIZE"]
@@ -127,11 +131,18 @@ def test_model_on_dataset(model, tokenizer, dataset_dict):
         tokenizer=tokenizer,
     )
 
+    if splits is None:
+        splits = ["train", "test"]
     cards = {}
-    for split in ["train", "test"]:
-        hf_dataset = dataset_dict[split].shuffle(seed=42).select(range(num_solve_tests//2))
+    for split in splits:
+        hf_dataset = dataset_dict[split].shuffle(seed=42).select(
+                range(min(
+                    num_solve_tests//len(splits),
+                    len(dataset_dict[split]),
+                ))
+            )
         cards[split] = solver.solve_hf_dataset(hf_dataset, split, batch_size)
-    for split in ["train", "test"]:
+    for split in splits:
         print(cards[split].summary)
 
 
@@ -167,7 +178,11 @@ def train(
     shrink_vocab(model, tokenizer)
     if ENV_VARS['DO_AUG']:
         dataset_dict = augment_dataset(dataset_dict, tokenizer)
-    tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
+    match ENV_VARS["MODEL_TYPE"]:
+        case "base":
+            tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
+        case _:
+            tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
 
     # ---- PEFT ----
     use_lora = ENV_VARS["USE_LORA"]
@@ -192,13 +207,12 @@ def train(
         merged_name = ENV_VARS["HF_OUTPUT_MODEL"] + ENV_VARS["HF_OUTPUT_MERGED_SUFFIX"]
         merged_model.push_to_hub(merged_name)
         tokenizer.push_to_hub(merged_name)
-        pass
 
     # ---- TEST ----
     test_model_on_dataset(model, tokenizer, dataset_dict)
     test_model_generation(model, tokenizer)
-    
-    return 
+
+    return model
 
 if __name__ == "__main__":
     train()

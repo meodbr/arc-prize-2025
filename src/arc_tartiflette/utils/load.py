@@ -56,6 +56,9 @@ def save_arc_challenges(data, filename: str):
     with open(filename, 'w') as f:
         f.write(collapse_last_lists(data))
 
+def print_arc_challenge(task):
+    print(collapse_last_lists(task))
+
 def convert_np_arrays_to_lists(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
@@ -180,7 +183,12 @@ def flatten_dataset(dataset: dict, prompt: bool=False, format: dict=constants.DE
         data.append({"text": flatten_task(task_data, prompt=prompt, format=format), "task": task_data})
     return data
 
-def dict_to_transformers_dataset(dataset: dict, format: dict=constants.DEFAULT_PROMPT_FORMAT) -> Dataset:
+def dict_to_transformers_dataset(dataset: dict, format: dict=constants.DEFAULT_PROMPT_FORMAT, keep_tests: bool=True) -> Dataset:
+    if not keep_tests:
+        # Remove outputs from test examples
+        dataset = copy.deepcopy(dataset)
+        for task in dataset.values():
+            task["test"] = [test for test in task["test"] if "output" in test.keys()]
     return Dataset.from_list(flatten_dataset(dataset, format=format))
 
 def transformers_dataset_to_dict(hf_dataset: Dataset) -> dict:

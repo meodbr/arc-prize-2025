@@ -160,4 +160,12 @@ DEFAULT_ENV_VARS = {
         "value": "4",
         "type": int
     },
+    "UNTIE_LM_HEAD": {
+        "value": "True",
+        "type": bool
+    },
+    "MODEL_TYPE": {
+        "value": "base",
+        "type": str
+    },
 }

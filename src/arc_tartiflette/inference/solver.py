@@ -114,8 +114,19 @@ class Solver:
         """
         Function wrapping a dataset solving run
         """
-        print(dataset)
-        is_result_known = "output" in next(iter(dataset.values()))["test"][0].keys()
+        if len(dataset) == 0:
+            print("Empty dataset, skipping...")
+            return SolverRunCard(
+                dataset_name=dataset_name,
+                dataset=dataset,
+                is_result_known=False,
+            )
+        first_task = next(iter(dataset.values()))
+        is_result_known = (
+            "output" in first_task["test"][0].keys()
+            if len(first_task["test"]) > 0
+            else False
+        )
         score_card = SolverRunCard(
             dataset_name=dataset_name,
             dataset=dataset,

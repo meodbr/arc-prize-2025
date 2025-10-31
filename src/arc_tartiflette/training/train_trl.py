@@ -11,14 +11,19 @@ def train_trl(
         tokenized_datasets: DatasetDict, 
         tokenizer,
         output_model="default_output_model",
+        push: bool=False,
+        output_path: str=None,
     ):
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
 
     fmt = get_architects_prompt_format(tokenizer)
 
+    if output_path is None:
+        output_path = f"./data/models/{output_model}"
+
     # Define training arguments using TRL's SFTConfig
     training_args = SFTConfig(
-        output_dir=f"./data/models/{output_model}",
+        output_dir=output_path,
         num_train_epochs=ENV_VARS["TRAIN_EPOCHS"],
         max_steps=ENV_VARS["TRAIN_STEPS"],
         per_device_train_batch_size=ENV_VARS["BATCH_SIZE"],
@@ -32,7 +37,7 @@ def train_trl(
         weight_decay=ENV_VARS["WEIGHT_DECAY"],
         optim=ENV_VARS["OPTIM"],
         report_to="none",
-        push_to_hub=True,
+        push_to_hub=push,
 
         # Precision config
         bf16=use_bf16,  # use bf16 if GPU supports it
