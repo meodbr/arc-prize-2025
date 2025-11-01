@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 
 from arc_tartiflette.config import defaults
 
+
 def convert_env_var(value, var_type):
     if var_type == bool:
         return value.lower() in ("true", "1", "yes")
@@ -20,8 +21,7 @@ def get_env_vars_with_defaults():
     return returned_vars
 
 def refresh_env_vars():
-    global ENV_VARS
     load_dotenv()
-    ENV_VARS = get_env_vars_with_defaults()
+    return get_env_vars_with_defaults()
 
-ENV_VARS = get_env_vars_with_defaults()
+ENV_VARS = refresh_env_vars()

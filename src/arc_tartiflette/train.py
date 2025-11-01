@@ -108,6 +108,8 @@ def get_tokenizer(model_name: str):
 def shrink_vocab(model, tokenizer):
     # Shrink vocab to only keep useful tokens
     print("Shrinking tokenizer vocabulary to only keep useful tokens...")
+    print(f"Original tokenizer vocab size: {len(tokenizer)}")
+    print(f"Original model parameters: {utils.count_parameters(model)/1e9:.3f}B")
     keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
     tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep=keep_tok)
     print(f"New tokenizer vocab size: {len(tokenizer)}")

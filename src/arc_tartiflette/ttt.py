@@ -42,6 +42,7 @@ def get_dataset(dataset_id: str, split: str="test", eval_split: str="eval", num_
     frac = ENV_VARS["DATASET_FRAC"]
     if frac != 1.:
         return frac_dataset_dict(dataset_dict, frac)
+    print(f"Dataset example:", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
     return dataset_dict
 
 
