@@ -76,6 +76,7 @@ def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
             n=1,
         )
         return tokenized
+    print(f"Example before tokenization:", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
     print("---- Dataset tokenized. ----")
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
