@@ -52,6 +52,8 @@ def neoneye_augment_and_push(
         output_name: str="meo-des/arc-agi-2_neoneye",
         neoneye_dir: str="data/neoneye",
         format: dict=constants.DEFAULT_PROMPT_FORMAT,
+        use_arc_public_eval: bool=False,
+        use_arc_public_eval_only_in_test: bool=True,
     ):
     # Get dataset
     dict_datasets = load.load_challenges_neoneye_format(path_tuples, neoneye_dir=neoneye_dir)
@@ -64,13 +66,37 @@ def neoneye_augment_and_push(
         hf_dataset = load.augment_transformers_dataset(hf_dataset, format=format, augment_types=["rot_flip", "color", "order"])
         print(f"  Augmented dataset now has {len(dataset)} tasks.")
         datasetdict[dataset_name] = hf_dataset
+    
+    if use_arc_public_eval:
+        dict_ds_eval = load.load_arc_public_eval_neoneye_format(path_tuples=("ARC-AGI-2", "evaluation"), neoneye_dir=neoneye_dir)
+        ds_eval = next(iter(dict_ds_eval.values()))
+        print(f"  Adding ARC Public Evaluation dataset with {len(ds_eval)} tasks.")
+        hf_ds_eval = load.dict_to_transformers_dataset(ds_eval, format)
+        frac = 1. if use_arc_public_eval_only_in_test else 0.4
+        hf_ds_eval_splitted = hf_ds_eval.shuffle(seed=42).train_test_split(test_size=frac)
+        arc_eval_test = hf_ds_eval_splitted["test"]
+        if not use_arc_public_eval_only_in_test:
+            datasetdict["arc_eval_train"] = load.augment_transformers_dataset(
+                hf_ds_eval_splitted["train"],
+                format=format,
+                augment_types=["order", "color"],
+                multipliers={"order": 2, "color": 2}, # x4 total
+            )
+
 
     hf_concatenated = concatenate_datasets(list(datasetdict.values()))
-    hf_datasetdict = DatasetDict({
-        "train": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)))),
-        "eval": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)), int(0.9*len(hf_concatenated)))),
-        "test": hf_concatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatenated)), len(hf_concatenated))),
-    })
+    if use_arc_public_eval:
+        hf_datasetdict = DatasetDict({
+            "train": hf_concatenated.shuffle(seed=42).select(range(int(0.95*len(hf_concatenated)))),
+            "eval": hf_concatenated.shuffle(seed=42).select(range(int(0.95*len(hf_concatenated)), len(hf_concatenated))),
+            "test": arc_eval_test,
+        })
+    else:
+        hf_datasetdict = DatasetDict({
+            "train": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)))),
+            "eval": hf_concatenated.shuffle(seed=42).select(range(int(0.8*len(hf_concatenated)), int(0.9*len(hf_concatenated)))),
+            "test": hf_concatenated.shuffle(seed=42).select(range(int(0.9*len(hf_concatenated)), len(hf_concatenated))),
+        })
     hf_datasetdict.push_to_hub(output_name)
     print(f"Dataset pushed to hub: {output_name}")
 
@@ -108,12 +134,12 @@ def neoneye_augment_tokenize_and_push(
 
 
 if __name__ == "__main__":
-    output_name = "meo-des/arc_main_fmt_aug_tok-smol-2048"
+    output_name = "meo-des/arc_main_fmt_aug"
     kaggle_input_dir = "data/kaggle_input"
     model_name = "nvidia/Mistral-NeMo-Minitron-8B-Base"
     # model_name = "HuggingFaceTB/SmolLM2-135M"
     # kaggle_flatten_and_push(kaggle_input_dir)
-    neoneye_path_tuples = load.NEONEYE_DATASETS["main_v1"]
+    neoneye_path_tuples = load.NEONEYE_DATASETS["main_v2"]
 
     # Format
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -121,4 +147,11 @@ if __name__ == "__main__":
     tokenizer_smol = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
 
     # neoneye_flatten_and_push(neoneye_path_tuples, output_name=output_name, format=format)
-    neoneye_augment_tokenize_and_push(neoneye_path_tuples, tokenizer_smol, output_name=output_name, format=format)
+    # neoneye_augment_tokenize_and_push(neoneye_path_tuples, tokenizer_smol, output_name=output_name, format=format)
+    neoneye_augment_and_push(
+        neoneye_path_tuples,
+        output_name=output_name, 
+        format=format,
+        use_arc_public_eval=True,
+        use_arc_public_eval_only_in_test=True,
+    )

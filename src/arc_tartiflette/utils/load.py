@@ -19,6 +19,12 @@ NEONEYE_DATASETS = {
         ("RE-ARC", "easy"),
         ("RE-ARC", "hard"),
         ("ConceptARC", "all")
+    ],
+    "main_v2": [
+        ("ARC-AGI-2", "training"),
+        ("RE-ARC", "easy"),
+        ("RE-ARC", "hard"),
+        ("ConceptARC", "all"),
     ]
 }
 
@@ -205,7 +211,7 @@ def sample_dict(data: dict, num_samples: int) -> dict:
     return sampled_dict
 
 
-def augment_rotations_flips(task: dict) -> list[dict]:
+def augment_rotations_flips(task: dict, max_transformations: int) -> list[dict]:
     """
     Generate augmented tasks by applying rotations and flips to the input and output grids.
     Returns a list of augmented tasks including the original.
@@ -223,7 +229,9 @@ def augment_rotations_flips(task: dict) -> list[dict]:
         lambda x: np.fliplr(np.rot90(x, k=3)), # vertical flip + 270 degrees
     ]
 
-    for transform in transformations:
+    for i, transform in enumerate(transformations):
+        if i >= max_transformations:
+            break
         new_task = {"train": [], "test": []}
         for ex in task["train"]:
             new_ex = {
@@ -342,6 +350,7 @@ def augment_transformers_dataset(
 
 def augment_task(task: dict, augment_types: list[str], multipliers: dict[str, int]) -> dict:
     default_multipliers = {
+        "rot_flip": 8,
         "color": 3,
         "order": 3,
     }
@@ -350,7 +359,7 @@ def augment_task(task: dict, augment_types: list[str], multipliers: dict[str, in
     if "rot_flip" in augment_types:
         new_tasks = []
         for t in augmented_tasks:
-            new_tasks.extend(augment_rotations_flips(t))
+            new_tasks.extend(augment_rotations_flips(t, max_transformations=mul["rot_flip"]))
         augmented_tasks = new_tasks
 
     if "color" in augment_types:
