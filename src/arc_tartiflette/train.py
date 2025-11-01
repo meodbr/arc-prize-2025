@@ -14,7 +14,7 @@ from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.inference.solvers.lm import LMSolver
 
 
-def get_model(model_name: str, device: str, untie_lm_head: bool=None):
+def get_model(model_name: str, untie_lm_head: bool=None):
     if untie_lm_head is None:
         untie_lm_head = ENV_VARS["USE_LORA"]
 
