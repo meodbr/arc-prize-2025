@@ -1,3 +1,4 @@
+import json
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig
 from peft import LoraConfig, TaskType, get_peft_model
 import torch
@@ -52,7 +53,7 @@ def get_model(model_name: str, untie_lm_head: bool=None):
         )
         print(f"Untying model head with embedding...")
         model.lm_head.weight.data = model.model.embed_tokens.weight.data.clone()
-        print(f"Num non-quantized parameters: {sum(p.numel() for p in model.parameters() if p.dtype in (torch.float32, torch.float16))}")
+        print(f"Num non-quantized parameters: {sum(p.numel() for p in model.parameters() if p.dtype in (torch.float32, torch.float16))/1e6:.2f}M")
     else:
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=model_name, 
@@ -136,6 +137,8 @@ def setup_peft_lora(model):
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
     print(f"Model now has {utils.count_parameters(model)/1e6:.3f}M parameters.")
+    print(f"Target modules for LoRA: {lora_target_modules}")
+    print(f"LoRA config: R={lora_r}, alpha={lora_alpha}, dropout={lora_dropout}, use_rslora={use_rslora}")
 
     return model
 
@@ -195,6 +198,7 @@ def test_model_generation(model, tokenizer):
 def train(
     push=True,
     ):
+    print(json.dumps({k: v for k, v in ENV_VARS.items() if 'TOKEN' not in k and 'PASSWORD' not in k}, indent=2))
     # ---- DEVICE ----
     gpu_availability.print_gpu_availability()
 

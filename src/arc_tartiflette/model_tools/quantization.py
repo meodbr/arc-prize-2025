@@ -36,18 +36,24 @@ def print_quantization_info(
     float_layers = []
 
     for name, module in model.named_modules():
-        if isinstance(module, (bnb.nn.Linear4bit, bnb.nn.Linear8bitLt)):
-            n_quant += 1
-            quantized_layers.append(name)
-        elif isinstance(module, torch.nn.Linear):
-            float_layers.append(name)
-        n_total += 1
+        if len(list(module.children())) == 0:  # leaf only
+            n_total += 1
+            if isinstance(module, (bnb.nn.Linear4bit, bnb.nn.Linear8bitLt)):
+                n_quant += 1
+                quantized_layers.append(name)
+            elif isinstance(module, torch.nn.Linear):
+                float_layers.append(name)
 
-    # Count parameters (approx)
     total_params = sum(p.numel() for p in model.parameters())
-    quantized_params = sum(p.numel() for p in model.parameters() if getattr(p, "dtype", None) in (torch.int8, torch.uint8, torch.int4, torch.uint4))
+    quantized_params = sum(
+        p.numel() for m in model.modules()
+        if isinstance(m, (bnb.nn.Linear4bit, bnb.nn.Linear8bitLt))
+        for p in m.parameters()
+    )
 
-    # Estimate VRAM (rough)
+    non_quantized_params = total_params - quantized_params
+
+       # Estimate VRAM (rough)
     param_bytes = {
         "float32": 4,
         "float16": 2,
@@ -67,8 +73,16 @@ def print_quantization_info(
     else:
         quant_type = "float16"
         bytes_per_param = param_bytes["float16"]
-
-    est_vram_gb = total_params * bytes_per_param / (1024**3)
+    
+    vram_bytes = 0
+    for m in model.modules():
+        if isinstance(m, bnb.nn.Linear4bit):
+            vram_bytes += sum(p.numel() * 0.5 for p in m.parameters())
+        elif isinstance(m, bnb.nn.Linear8bitLt):
+            vram_bytes += sum(p.numel() * 1 for p in m.parameters())
+        else:
+            vram_bytes += sum(p.numel() * 2 for p in m.parameters())  # assume fp16
+    est_vram_gb = vram_bytes / (1024**3)
 
     print("───────────────────────────────────────────────")
     print(f" Model: {model_name}")
@@ -77,6 +91,8 @@ def print_quantization_info(
     print(f" Quantized modules: {n_quant} ({100*n_quant/n_total:.1f}%)")
     print(f" Non-quantized modules: {n_total - n_quant}")
     print(f" Total parameters: {total_params/1e9:.2f}B")
+    print(f" Quantized parameters: {quantized_params/1e9:.2f}B")
+    print(f" Non-quantized parameters: {non_quantized_params/1e9:.2f}B")
     print(f" Estimated VRAM after quantization: {est_vram_gb:.2f} GB")
     print("───────────────────────────────────────────────")
 
