@@ -42,7 +42,7 @@ Why? From my point of view:
 - [x] Train Big model Base
 
 - [ ] Base TTT kaggle
-- [ ] Test bigger context
+- [x] Test bigger context
 - [ ] Tweak Hyperparams
 - [ ] Debug 2DPE
 - [ ] Train smol model 2DPE
