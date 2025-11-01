@@ -81,10 +81,13 @@ def get_dataset(dataset_id: str):
 
 def augment_dataset(dataset, tokenizer, only_splits: list=None):
     print(f"Augmenting dataset (has {len(dataset['train'])} training examples)...")
+    new_dataset = {}
     for split, data in dataset.items():
         if only_splits and split not in only_splits:
+            new_dataset[split] = data
             continue
-        data = load.augment_transformers_dataset(
+        print(f"Augmenting split '{split}' with {len(data)} examples...")
+        new_dataset[split] = load.augment_transformers_dataset(
             data,
             format=tokenizer_tools.get_architects_prompt_format(tokenizer),
             multipliers={
@@ -92,8 +95,9 @@ def augment_dataset(dataset, tokenizer, only_splits: list=None):
                 "order": ENV_VARS["AUG_ORDER_NUM"],
             },
         )
+        print(f"Augmented split '{split}' now has {len(new_dataset[split])} examples.")
     print(f"Dataset now has {len(dataset['train'])} training examples after augmentation.")
-    return dataset
+    return DatasetDict(new_dataset)
 
 
 def get_tokenizer(model_name: str):

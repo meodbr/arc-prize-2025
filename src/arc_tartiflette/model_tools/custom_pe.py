@@ -1,5 +1,6 @@
 from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_update
 from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding
+from transformers import PreTrainedTokenizerFast, AutoTokenizer
 import numpy as np
 import torch
 
@@ -27,40 +28,26 @@ class CustomRotaryEmbedding2D(MistralRotaryEmbedding):
 
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
-class TokenizerWrapper2D:
-    def __init__(self, base_tokenizer):
-        self.tokenizer = base_tokenizer
-        self.vocab = base_tokenizer.get_vocab()
-        self.pad_token_id = base_tokenizer.pad_token_id or 0
 
-    def encode_grid(self, grid: np.ndarray):
-        """
-        Your custom logic:
-        - map each grid element to a token ID
-        - reuse existing tokenizer IDs where possible
-        """
-        # Example: flatten the grid and map numbers to vocab IDs
-        input_ids = [self.vocab.get(str(int(x)), self.tokenizer.unk_token_id) for x in grid.flatten()]
-        return input_ids
-
-    def __call__(self, data_dict):
-        """
-        data_dict: {"grid": np.array, "text": str, "label": int, ...}
-        """
-        input_ids = self.encode_grid(data_dict["grid"])
+class Tokenizer2DPE(PreTrainedTokenizerFast):
+    def __call__(self, *args, **kwargs):
+        data_dict = super().__call__(*args, **kwargs)
         
+        input_ids = []
+        attention_mask = []
+
+        # Process grid input
+        if "grid" in data_dict:
+            grid_ids = self.encode_grid(data_dict["grid"])
+            input_ids.extend(grid_ids)
+            attention_mask.extend([1] * len(grid_ids))
+
         # Optionally include text tokens
         if "text" in data_dict:
             text_ids = self.tokenizer.encode(data_dict["text"], add_special_tokens=False)
             input_ids.extend(text_ids)
-        
-        attention_mask = [1] * len(input_ids)
-        
-        # Convert to tensors and pad to max length
-        max_len = 128  # or dynamic
-        input_ids = input_ids[:max_len] + [self.pad_token_id] * (max_len - len(input_ids))
-        attention_mask = attention_mask[:max_len] + [0] * (max_len - len(attention_mask))
-        
+            attention_mask.extend([1] * len(text_ids))
+
         return {
             "input_ids": torch.tensor(input_ids),
             "attention_mask": torch.tensor(attention_mask),

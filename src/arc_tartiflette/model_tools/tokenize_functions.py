@@ -82,6 +82,51 @@ def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
     return tokenized_datasets
 
+
+def compute_2DPE_pos_ids(example, tokenizer: AutoTokenizer):
+    """
+    Computes 2D positional IDs for a given example.
+
+    Args:
+        example (dict): Example with 'grid_width' and 'grid_height' keys.
+
+    Returns:
+        torch.Tensor: [batch, seq_len] 2D positional IDs.
+    """
+    grid_width = example.get("grid_width", 1)
+    grid_height = example.get("grid_height", 1)
+    pos_ids = torch.zeros((grid_height, grid_width), dtype=torch.long)
+
+    for i in range(grid_height):
+        for j in range(grid_width):
+            pos_ids[i, j] = i * grid_width + j
+
+    return pos_ids
+
+
+def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
+    print("Tokenizing dataset with 2DPE tokenizer...")
+    max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
+
+    def tokenize_function(example):
+        if tokenizer.bos_token != "<s>":
+            example = replace_bos_eos_batch(example, tokenizer)
+        tokenized = tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length", return_tensors='pt')
+        tokenized["labels"] = tokenized["input_ids"].clone()
+        tokenized["completion_mask"] = make_completion_mask(
+            tokenized["input_ids"], 
+            tokenized["attention_mask"], 
+            special_token_id=tokenizer("I")["input_ids"][0],
+            n=1,
+        )
+        return tokenized
+    print(f"Example before tokenization:", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
+    tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
+    print("---- Dataset tokenized with 2DPE tokenizer. ----")
+    print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
+    return tokenized_datasets
+
+
 def frac_dataset_dict(dataset_dict: DatasetDict, frac=0.1, seed=42):
     """
     Returns a fraction of each split in a DatasetDict.
