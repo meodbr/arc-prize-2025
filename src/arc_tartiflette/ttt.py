@@ -125,6 +125,6 @@ if __name__ == "__main__":
         save_merged=True,
         split="test",
         submission_run=True,
-        model_name="meo-des/smollm2_arc_main_base_4096_2e_m",
+        model_name="meo-des/nemo_arc_main_base_1s2e_m",
         dataset_name="",
     )

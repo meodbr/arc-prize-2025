@@ -187,14 +187,17 @@ def test_model_on_dataset(model, tokenizer, dataset_dict, splits: list=None):
 
 def test_model_generation(model, tokenizer):
     print("---- TEST GENERATION ----")
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+    try:
+        pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
 
-    # Test prompt
-    fmt = tokenizer_tools.get_architects_prompt_format(tokenizer)
-    prompt = fmt["bos_token"] + fmt["preprompt"] + fmt["input_beg"]
-    output = pipe(prompt, max_new_tokens=100, do_sample=True, temperature=0.7)
+        # Test prompt
+        fmt = tokenizer_tools.get_architects_prompt_format(tokenizer)
+        prompt = fmt["bos_token"] + fmt["preprompt"] + fmt["input_beg"]
+        output = pipe(prompt, max_new_tokens=100, do_sample=True, temperature=0.7)
 
-    print(output[0]["generated_text"])
+        print(output[0]["generated_text"])
+    except Exception as e:
+        print("Error during generation test:", e)
 
 
 def train(
