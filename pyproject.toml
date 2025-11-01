@@ -14,6 +14,8 @@ dependencies = [
     "torch>=2.4,<2.9",
     "huggingface-hub",
     "dotenv",
+    "peft",
+    "trl",
 ]
 
 [project.scripts]
