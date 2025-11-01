@@ -21,10 +21,15 @@ def get_model(model_name: str, device: str, untie_lm_head: bool=None):
     quantize_model = ENV_VARS["QUANTIZE_MODEL"]
     if quantize_model in [4, 8]:
         print(f"Loading quantized model with {quantize_model}-bit quantization...")
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=(quantize_model == 4),
-            load_in_8bit=(quantize_model == 8),
-        )
+        bnb_config = None
+        if quantize_model == 4:
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type=ENV_VARS["BNB_4BIT_QUANT_TYPE"],
+                bnb_4bit_compute_type=torch.float16,
+            )
+        else:
+            bnb_config = BitsAndBytesConfig(load_in_8bit=True)
     else:
         bnb_config = None
         
@@ -34,11 +39,17 @@ def get_model(model_name: str, device: str, untie_lm_head: bool=None):
             pretrained_model_name_or_path=model_name,
             tie_word_embeddings=False,
             quantization_config=bnb_config,
-        ).to(device)
+            device_map="auto",
+        )
         print(f"Untying model head with embedding...")
         model.lm_head.weight.data = model.model.embed_tokens.weight.data.clone()
+        print(f"Num non-quantized parameters: {sum(p.numel() for p in model.parameters() if p.dtype in (torch.float32, torch.float16))}")
     else:
-        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name, quantization_config=bnb_config).to(device)
+        model = AutoModelForCausalLM.from_pretrained(
+            pretrained_model_name_or_path=model_name, 
+            quantization_config=bnb_config,
+            device_map="auto",
+        )
     print(f"---- Model {model_name} loaded. ----")
     print(f"Model has {utils.count_parameters(model)/1e9:.3f}B parameters.")
     return model
@@ -176,11 +187,10 @@ def train(
     ):
     # ---- DEVICE ----
     gpu_availability.print_gpu_availability()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # ---- MODEL ----
     model_name = ENV_VARS["HF_BASE_MODEL"]
-    model = get_model(model_name, device)
+    model = get_model(model_name, untie_lm_head=ENV_VARS["UNTIE_LM_HEAD"])
 
     # ---- DATASET ----
     dataset_id = f"{constants.HF_USER}/{ENV_VARS['HF_DATASET']}"

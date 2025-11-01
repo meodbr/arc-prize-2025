@@ -172,4 +172,8 @@ DEFAULT_ENV_VARS = {
         "value": "0",
         "type": int
     },
+    "BNB_4BIT_QUANT_TYPE": {
+        "value": "nf4",
+        "type": str
+    },
 }

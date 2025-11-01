@@ -71,11 +71,10 @@ def test_time_training(
     ):
     # ---- DEVICE ----
     gpu_availability.print_gpu_availability()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # ---- MODEL ----
     model_name = model_name if model_name else ENV_VARS["HF_BASE_MODEL"]
-    model = get_model(model_name, device)
+    model = get_model(model_name, untie_lm_head=ENV_VARS["UNTIE_LM_HEAD"])
 
     # ---- DATASET ----
     if dataset_name: # Test runs online on kaggle
