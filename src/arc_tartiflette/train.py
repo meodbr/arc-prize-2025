@@ -7,6 +7,7 @@ import os
 
 import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
 from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, frac_dataset_dict
+from arc_tartiflette.model_tools.quantization import print_quantization_info
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
@@ -27,9 +28,17 @@ def get_model(model_name: str, untie_lm_head: bool=None):
                 load_in_4bit=True,
                 bnb_4bit_quant_type=ENV_VARS["BNB_4BIT_QUANT_TYPE"],
                 bnb_4bit_compute_type=torch.float16,
+                llm_int8_enable_fp32_cpu_offload=True,
             )
         else:
-            bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+            bnb_config = BitsAndBytesConfig(load_in_8bit=True, llm_int8_enable_fp32_cpu_offload=True)
+        if ENV_VARS["PRINT_QUANT_INFO"]:
+            print_quantization_info(
+                model_name=model_name,
+                quantization_config=bnb_config,
+                device_map="cpu",
+                verbose=True,
+            )
     else:
         bnb_config = None
         
@@ -91,6 +100,7 @@ def get_tokenizer(model_name: str):
     print(f"Tokenizer fast? {tokenizer.is_fast}")
     tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
     print(f"Tokenizer loaded. Vocab size: {len(tokenizer)}")
+    print(f"Tokenizer class: {type(tokenizer)}")
     return tokenizer
 
 

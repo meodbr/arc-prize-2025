@@ -85,7 +85,7 @@ DEFAULT_ENV_VARS = {
         "type": bool
     },
     "LORA_TARGET_MODULES": {
-        "value": "q_proj,k_proj,v_proj,o_proj,up_proj,down_proj,embed_tokens,lm_head",
+        "value": "q_proj,k_proj,v_proj,o_proj,up_proj,down_proj,embed_tokens",
         "type": list[str]
     },
     "LORA_R": {
@@ -161,7 +161,7 @@ DEFAULT_ENV_VARS = {
         "type": int
     },
     "UNTIE_LM_HEAD": {
-        "value": "True",
+        "value": "False",
         "type": bool
     },
     "MODEL_TYPE": {
@@ -171,6 +171,10 @@ DEFAULT_ENV_VARS = {
     "QUANTIZE_MODEL": {
         "value": "0",
         "type": int
+    },
+    "PRINT_QUANT_INFO": {
+        "value": "False",
+        "type": bool
     },
     "BNB_4BIT_QUANT_TYPE": {
         "value": "nf4",
