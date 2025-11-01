@@ -3,6 +3,7 @@ from transformers import AutoTokenizer
 from datasets import DatasetDict
 
 from arc_tartiflette.config.settings import ENV_VARS
+from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
 
 
 def make_completion_mask(input_ids: torch.Tensor, attention_mask: torch.Tensor, special_token_id: int, n: int) -> torch.Tensor:
@@ -77,6 +78,8 @@ def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
         )
         return tokenized
     print(f"Example before tokenization:", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
+    if "text" not in dataset_dict['train'].column_names:
+        raise ValueError(f"Dataset does not contain 'text' column. Available columns: {dataset_dict['train'].column_names}")
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
     print("---- Dataset tokenized. ----")
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
@@ -86,22 +89,40 @@ def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
 def compute_2DPE_pos_ids(example, tokenizer: AutoTokenizer):
     """
     Computes 2D positional IDs for a given example.
-
-    Args:
-        example (dict): Example with 'grid_width' and 'grid_height' keys.
-
-    Returns:
-        torch.Tensor: [batch, seq_len] 2D positional IDs.
+    Not batched
     """
-    grid_width = example.get("grid_width", 1)
-    grid_height = example.get("grid_height", 1)
-    pos_ids = torch.zeros((grid_height, grid_width), dtype=torch.long)
+    format = get_architects_prompt_format(tokenizer)
+    input_ids = example["input_ids"]
+    x, y = 0, 0
+    pos_ids = []
+    grid_origin = [0, 0]
+    input_beg_id = tokenizer(format["input_beg"])["input_ids"][0]
+    output_beg_id = tokenizer(format["output_beg"])["input_ids"][0]
+    row_end_id = tokenizer(format["row_end"])["input_ids"][0]
+    is_in_grid = False
+    for i in range(len(input_ids)):
+        pos_ids.append([x, y])
+        if input_ids[i] == tokenizer.eos_token_id:
+            is_in_grid = False
+        if input_ids[i] in [input_beg_id, output_beg_id]:
+            grid_origin = [x, y]
+            is_in_grid = True
 
-    for i in range(grid_height):
-        for j in range(grid_width):
-            pos_ids[i, j] = i * grid_width + j
+        # How x and y are assigned depends on whether we are in the grid or not
+        if input_ids[i] == row_end_id and is_in_grid:
+            y += 1
+            x = grid_origin[0]
+            print(tokenizer.decode(input_ids[i]), end="\n")
+        elif is_in_grid:
+            print(tokenizer.decode(input_ids[i]), end="")
+            x += 1
+        else:
+            print(tokenizer.decode(input_ids[i]), end="-")
+            x += 1
+            y += 1
+    example["position_ids"] = torch.Tensor(pos_ids).long()
 
-    return pos_ids
+    return example
 
 
 def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
@@ -122,6 +143,9 @@ def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
         return tokenized
     print(f"Example before tokenization:", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
+    tokenized_datasets = tokenized_datasets.map(
+        compute_2DPE_pos_ids, fn_kwargs={"tokenizer": tokenizer}, batched=False
+    )
     print("---- Dataset tokenized with 2DPE tokenizer. ----")
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
     return tokenized_datasets
@@ -145,3 +169,15 @@ def frac_dataset_dict(dataset_dict: DatasetDict, frac=0.1, seed=42):
         small_ds = ds.train_test_split(test_size=frac, seed=seed)["test"]
         small_splits[split_name] = small_ds
     return DatasetDict(small_splits)
+
+
+if __name__ == "__main__":
+    from datasets import load_dataset
+    from transformers import AutoTokenizer
+
+    dataset_dict = load_dataset("meo-des/arc_main_fmt_aug")
+    dataset_dict = DatasetDict({"train": dataset_dict["train"].select(range(10))})
+    tokenizer = AutoTokenizer.from_pretrained("meo-des/nemo_arc_main_base_1s2e_m")
+
+    tokenized_datasets = tokenize_dataset_2DPE(dataset_dict, tokenizer)
+    print(tokenized_datasets['train'][0])

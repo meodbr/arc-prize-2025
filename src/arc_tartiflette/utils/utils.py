@@ -23,6 +23,7 @@ def estimate_time_per_epoch(model, batch_size: int, use_bf16: bool, seq_length: 
     return time_per_batch * num_batches
 
 def hf_login():
-    hf.login(token=os.environ.get("HUGGING_FACE_TOKEN"))
+    if os.environ.get("HUGGING_FACE_TOKEN", None) is not None:
+        hf.login(token=os.environ.get("HUGGING_FACE_TOKEN"))
 
 hf_login()

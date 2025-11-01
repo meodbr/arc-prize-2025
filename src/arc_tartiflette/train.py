@@ -96,7 +96,7 @@ def augment_dataset(dataset, tokenizer, only_splits: list=None):
             },
         )
         print(f"Augmented split '{split}' now has {len(new_dataset[split])} examples.")
-    print(f"Dataset now has {len(dataset['train'])} training examples after augmentation.")
+    print(f"Dataset now has {len(new_dataset['train'])} training examples after augmentation.")
     return DatasetDict(new_dataset)
 
 
