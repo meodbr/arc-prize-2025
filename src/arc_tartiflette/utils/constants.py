@@ -168,4 +168,8 @@ DEFAULT_ENV_VARS = {
         "value": "base",
         "type": str
     },
+    "QUANTIZE_MODEL": {
+        "value": "0",
+        "type": int
+    },
 }

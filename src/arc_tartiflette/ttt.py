@@ -32,6 +32,19 @@ def get_kaggle_dataset(kaggle_dir: str, split: str, submission_run: bool=True, e
     return hf_dataset
 
 
+def get_dataset(dataset_id: str, split: str="test", eval_split: str="eval", num_eval: int=40):
+    hf_dataset = load_dataset(dataset_id)
+    dataset_dict = DatasetDict({
+        "train": load.remove_tests_from_hf_dataset(hf_dataset[split]),
+        "eval": hf_dataset[eval_split].shuffle(seed=42).select(range(min(num_eval, len(hf_dataset[eval_split])))),
+    })
+    print(f"---- Non-kaggle dataset {dataset_id} loaded. ----")
+    frac = ENV_VARS["DATASET_FRAC"]
+    if frac != 1.:
+        return frac_dataset_dict(dataset_dict, frac)
+    return dataset_dict
+
+
 def save_ttt_model(model, tokenizer, model_path: str, save_adapter: bool=True, save_merged: bool=True):
     if save_adapter:
         os.makedirs(model_path, exist_ok=True)
@@ -54,6 +67,7 @@ def test_time_training(
         submission_run: bool=True,
         model_name: str=None,
         eval_split: str="eval",
+        dataset_name: str="",
     ):
     # ---- DEVICE ----
     gpu_availability.print_gpu_availability()
@@ -64,7 +78,10 @@ def test_time_training(
     model = get_model(model_name, device)
 
     # ---- DATASET ----
-    dataset_dict = get_kaggle_dataset(kaggle_dir, split=split, submission_run=submission_run, eval_split=eval_split)
+    if dataset_name: # Test runs online on kaggle
+        dataset_dict = get_dataset(dataset_name)
+    else:
+        dataset_dict = get_kaggle_dataset(kaggle_dir, split=split, submission_run=submission_run, eval_split=eval_split)
 
     # ---- PREPROCESS ----
     tokenizer = get_tokenizer(model_name)
@@ -76,8 +93,7 @@ def test_time_training(
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
 
     # ---- PEFT ----
-    use_lora = ENV_VARS["USE_LORA"]
-    if use_lora:
+    if ENV_VARS["USE_LORA"]:
         model = setup_peft_lora(model)
 
     # ---- TRAIN ----
@@ -109,5 +125,6 @@ if __name__ == "__main__":
         save_merged=True,
         split="test",
         submission_run=True,
-        model_name="meo-des/smollm2_arc_main_base_4096_2e_m"
+        model_name="meo-des/smollm2_arc_main_base_4096_2e_m",
+        dataset_name="",
     )

@@ -189,6 +189,15 @@ def flatten_dataset(dataset: dict, prompt: bool=False, format: dict=constants.DE
         data.append({"text": flatten_task(task_data, prompt=prompt, format=format), "task": task_data})
     return data
 
+
+def remove_tests_from_hf_dataset(hf_dataset: Dataset) -> Dataset:
+    def remove_tests(example):
+        task = example["task"]
+        task["test"] = []
+        return {"task": task}
+    return hf_dataset.map(remove_tests, remove_columns=["text"])
+
+
 def dict_to_transformers_dataset(dataset: dict, format: dict=constants.DEFAULT_PROMPT_FORMAT, keep_tests: bool=True) -> Dataset:
     if not keep_tests:
         # Remove outputs from test examples

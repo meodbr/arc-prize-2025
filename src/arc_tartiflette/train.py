@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig
 from peft import LoraConfig, TaskType, get_peft_model
 import torch
 from datasets import Dataset, DatasetDict, load_dataset
@@ -17,15 +17,28 @@ from arc_tartiflette.inference.solvers.lm import LMSolver
 def get_model(model_name: str, device: str, untie_lm_head: bool=None):
     if untie_lm_head is None:
         untie_lm_head = ENV_VARS["USE_LORA"]
+
+    quantize_model = ENV_VARS["QUANTIZE_MODEL"]
+    if quantize_model in [4, 8]:
+        print(f"Loading quantized model with {quantize_model}-bit quantization...")
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=(quantize_model == 4),
+            load_in_8bit=(quantize_model == 8),
+        )
+    else:
+        bnb_config = None
+        
+
     if untie_lm_head:
         model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=model_name,
             tie_word_embeddings=False,
+            quantization_config=bnb_config,
         ).to(device)
         print(f"Untying model head with embedding...")
         model.lm_head.weight.data = model.model.embed_tokens.weight.data.clone()
     else:
-        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name).to(device)
+        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name, quantization_config=bnb_config).to(device)
     print(f"---- Model {model_name} loaded. ----")
     print(f"Model has {utils.count_parameters(model)/1e9:.3f}B parameters.")
     return model
@@ -148,7 +161,7 @@ def test_model_on_dataset(model, tokenizer, dataset_dict, splits: list=None):
 
 def test_model_generation(model, tokenizer):
     print("---- TEST GENERATION ----")
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=0)
+    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
 
     # Test prompt
     fmt = tokenizer_tools.get_architects_prompt_format(tokenizer)
@@ -209,8 +222,8 @@ def train(
         tokenizer.push_to_hub(merged_name)
 
     # ---- TEST ----
-    test_model_on_dataset(model, tokenizer, dataset_dict)
-    test_model_generation(model, tokenizer)
+    test_model_on_dataset(merged_model, tokenizer, dataset_dict)
+    test_model_generation(merged_model, tokenizer)
 
     return model
 

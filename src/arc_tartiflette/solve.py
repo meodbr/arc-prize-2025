@@ -77,6 +77,33 @@ def solve_all_kaggle(
         show_predicted=True,
     )
 
+def solve_hf_dataset(
+        hf_dataset,
+        model: AutoModel=None,
+        tokenizer: AutoTokenizer=None,
+        batch_size: int=1,
+        max_solve_total: int=150,
+        frac: float=1.,
+        dataset_name: str="hf_dataset",
+    ) -> None:
+    """
+    Solve ARC challenges from a HuggingFace dataset.
+    """
+    solver = LMSolver(
+        model=model,
+        tokenizer=tokenizer,
+    )
+
+    if frac < 1.:
+        hf_dataset = hf_dataset.shuffle(seed=42).train_test_split(test_size=1-frac)["train"]
+    if max_solve_total is not None:
+        hf_dataset = hf_dataset.select(range(min(max_solve_total, len(hf_dataset))))
+    
+    card = solver.solve_hf_dataset(hf_dataset, dataset_name, batch_size)
+    print(card.summary)
+    plot.peek_dict(load.transformers_dataset_to_dict(card.dataset), num_tasks=4, show_predicted=True)
+
+
 if __name__ == "__main__":
     input_dir = "data/kaggle_input"
     output_dir = "data/kaggle_working"
