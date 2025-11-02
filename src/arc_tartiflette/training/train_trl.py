@@ -18,6 +18,8 @@ def train_trl(
 
     fmt = get_architects_prompt_format(tokenizer)
 
+    use_custom_data_collator = ENV_VARS["MODEL_TYPE"] in ["2DPE", "conv"]
+
     if output_path is None:
         output_path = f"./data/models/{output_model}"
 
@@ -38,7 +40,7 @@ def train_trl(
         optim=ENV_VARS["OPTIM"],
         report_to="none",
         push_to_hub=push,
-        remove_unused_columns=False,
+        remove_unused_columns=not use_custom_data_collator,
 
         # Precision config
         bf16=use_bf16,  # use bf16 if GPU supports it
@@ -51,13 +53,7 @@ def train_trl(
         args=training_args,
         train_dataset=tokenized_datasets["train"],
         eval_dataset=tokenized_datasets["eval"],
-        data_collator=CustomCompletionMaskDataCollator(),
-        # data_collator=ExampleMaskingDataCollator(
-        #     response_template=fmt['output_beg'],
-        #     mlm=False,
-        #     tokenizer=tokenizer,
-        #     mask_first_n_examples=1,
-        # ),
+        data_collator=CustomCompletionMaskDataCollator() if use_custom_data_collator else None,
     )
 
     # Start training

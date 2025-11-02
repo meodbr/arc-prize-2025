@@ -101,7 +101,7 @@ def tokenize_conv_grid(grid: list[list[int]], tokenizer: PreTrainedTokenizerFast
     return tokenized_path, grid_end
 
 
-def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, current_position: tuple[int, int]=(0,0)):
+def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, current_position: list[int]=(0,0)):
     fmt = get_architects_prompt_format(tokenizer)
 
     tokenized = []
@@ -123,7 +123,7 @@ def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, cur
         "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=1),
         "position_ids": torch.cat([t["position_ids"] for t in tokenized], dim=1),
         "labels": torch.cat([t["labels"] for t in tokenized], dim=1),
-    }
+    }, current_position
 
 def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast):
     fmt = get_architects_prompt_format(tokenizer)
@@ -132,18 +132,25 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast):
 
     # Task beg
     tokenized.append(tokenize_simple_char(id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=(0,0)))
+    current_position = [current_position[0]+1, current_position[1]+1]
     for char in fmt["preprompt"]:
-        tokenized.append(tokenize_simple_char(char=char, tokenizer=tokenizer, current_position=(0,0)))
+        tokenized.append(tokenize_simple_char(char=char, tokenizer=tokenizer, current_position=current_position))
+        current_position = (current_position[0]+1, current_position[1]+1)
 
-    current_position = (1,1)
 
-    for example in task["examples"]:
-        tokenized_example = tokenize_conv_example(example, tokenizer, current_position)
+    for i, example in enumerate(task["train"] + task["test"]):
+        if i > 0:
+            # Example separator
+            tokenized.append(tokenize_simple_char(id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=current_position))
+            current_position = (current_position[0]+1, current_position[1]+1)
+
+        tokenized_example, new_pos = tokenize_conv_example(example, tokenizer, current_position)
         tokenized.append(tokenized_example)
-        current_position = (current_position[0]+len(example["input"])+2, current_position[1]+len(example["input"][0])+2)
+        current_position = new_pos
 
-    # Task end
-    tokenized.append(tokenize_simple_char(id=fmt["task_end_id"], tokenizer=tokenizer, current_position=current_position))
+        tokenized.append(tokenize_simple_char(id=fmt["eos_token_id"], tokenizer=tokenizer, current_position=current_position))
+        current_position = (current_position[0]+1, current_position[1]+1)
+
 
     return {
         "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=1),
