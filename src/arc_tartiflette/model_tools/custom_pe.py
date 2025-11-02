@@ -1,5 +1,5 @@
 from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_update
-from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding, MistralModel
+from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding, MistralModel, MistralForCausalLM
 from transformers import PreTrainedTokenizerFast, AutoTokenizer
 from transformers.data.data_collator import DataCollatorMixin
 import numpy as np
@@ -50,12 +50,26 @@ class CustomCompletionMaskDataCollator(DataCollatorMixin):
 
         return batch
 
-
-class CustomMistralModel2DPE(MistralModel):
+class CustomMistralModel2DPEBase(MistralModel):
     def __init__(self, config):
         super().__init__(config)
         self.rotary_emb = CustomRotaryEmbedding2D(config)
+
+
+class CustomMistralModel2DPE(MistralForCausalLM):
+    def __init__(self, config):
+        super().__init__(config)
+        self.model = CustomMistralModel2DPEBase(config)
+        print("CustomMistralModel2DPE.config:", self.config)
+        print("CustomMistralModel2DPE.generation_config:", self.generation_config)
+        print("CustomMistralModel2DPE.model.config:", self.model.config)
+        print("CustomMistralModel2DPE.model.generation_config:", self.model.generation_config)
         self.post_init()
+        print("After post_init:")
+        print("CustomMistralModel2DPE.config:", self.config)
+        print("CustomMistralModel2DPE.generation_config:", self.generation_config)
+        print("CustomMistralModel2DPE.model.config:", self.model.config)
+        print("CustomMistralModel2DPE.model.generation_config:", self.model.generation_config)
 
 
 # BASE CLASS (kept here to have an example)

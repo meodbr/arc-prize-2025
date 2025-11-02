@@ -75,6 +75,9 @@ def get_model(model_name: str, untie_lm_head: bool=None):
         )
     print(f"---- Model {model_name} loaded. ----")
     print(f"Model has {utils.count_parameters(model)/1e9:.3f}B parameters.")
+    print("Model config:", model.config)
+    print(f"Model dtype: {next(model.parameters()).dtype}")
+    print(f"Model generation config: {model.generation_config}")
     return model
 
 
@@ -128,6 +131,8 @@ def shrink_vocab(model, tokenizer):
     print(f"Original tokenizer vocab size: {len(tokenizer)}")
     print(f"Original model parameters: {utils.count_parameters(model)/1e9:.3f}B")
     keep_tok = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.:,;*+/-=')+tokenizer.tokenize('\n')
+    print(f"Model config", model.config)
+    print(f"Model generation config", model.generation_config)
     tokenizer_tools.keep_single_char_tokens(model, tokenizer, keep=keep_tok)
     print(f"New tokenizer vocab size: {len(tokenizer)}")
     print(f"Model parameters after vocab shrink: {utils.count_parameters(model)/1e9:.3f}B")
