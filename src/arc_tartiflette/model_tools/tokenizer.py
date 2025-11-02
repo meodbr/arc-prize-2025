@@ -113,4 +113,9 @@ def get_architects_prompt_format(tokenizer: Tokenizer):
         "example_end": "",
         "bos_token": tokenizer.bos_token,
         "eos_token": tokenizer.eos_token,
+        "row_end_id": tokenizer("\n")["input_ids"][-1],
+        "input_beg_id": tokenizer("I")["input_ids"][-1],
+        "output_beg_id": tokenizer("O")["input_ids"][-1],
+        "bos_token_id": tokenizer.bos_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
     }

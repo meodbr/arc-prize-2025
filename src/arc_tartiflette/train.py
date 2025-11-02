@@ -7,13 +7,14 @@ import huggingface_hub as hf
 import os
 
 import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
-from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, frac_dataset_dict
+from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, tokenize_dataset_2DPE, frac_dataset_dict
 from arc_tartiflette.model_tools.quantization import print_quantization_info
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
 from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.inference.solvers.lm import LMSolver
+from arc_tartiflette.model_tools.custom_pe import CustomMistralModel2DPE
 
 
 def get_model(model_name: str, untie_lm_head: bool=None):
@@ -42,10 +43,22 @@ def get_model(model_name: str, untie_lm_head: bool=None):
             )
     else:
         bnb_config = None
+
+    model_class = AutoModelForCausalLM
+    match ENV_VARS["MODEL_TYPE"]:
+        case "base":
+            print("Using base AutoModelForCausalLM...")
+            model_class = AutoModelForCausalLM
+        case "2DPE":
+            print("Using Custom Mistral Model with 2D PE...")
+            model_class = CustomMistralModel2DPE
+        case _:
+            model_class = AutoModelForCausalLM
+
         
 
     if untie_lm_head:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = model_class.from_pretrained(
             pretrained_model_name_or_path=model_name,
             tie_word_embeddings=False,
             quantization_config=bnb_config,
@@ -55,7 +68,7 @@ def get_model(model_name: str, untie_lm_head: bool=None):
         model.lm_head.weight.data = model.model.embed_tokens.weight.data.clone()
         print(f"Num non-quantized parameters: {sum(p.numel() for p in model.parameters() if p.dtype in (torch.float32, torch.float16))/1e6:.2f}M")
     else:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = model_class.from_pretrained(
             pretrained_model_name_or_path=model_name, 
             quantization_config=bnb_config,
             device_map="auto",
@@ -227,6 +240,8 @@ def train(
     match ENV_VARS["MODEL_TYPE"]:
         case "base":
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
+        case "2DPE":
+            tokenized_datasets = tokenize_dataset_2DPE(dataset_dict, tokenizer)
         case _:
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
 

@@ -3,7 +3,7 @@ from datasets import Dataset, DatasetDict
 import torch
 
 from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
-from arc_tartiflette.model_tools.data_collator import ExampleMaskingDataCollator
+from arc_tartiflette.model_tools.custom_pe import CustomCompletionMaskDataCollator
 from arc_tartiflette.config.settings import ENV_VARS
 
 def train_trl(
@@ -38,6 +38,7 @@ def train_trl(
         optim=ENV_VARS["OPTIM"],
         report_to="none",
         push_to_hub=push,
+        remove_unused_columns=False,
 
         # Precision config
         bf16=use_bf16,  # use bf16 if GPU supports it
@@ -50,6 +51,7 @@ def train_trl(
         args=training_args,
         train_dataset=tokenized_datasets["train"],
         eval_dataset=tokenized_datasets["eval"],
+        data_collator=CustomCompletionMaskDataCollator(),
         # data_collator=ExampleMaskingDataCollator(
         #     response_template=fmt['output_beg'],
         #     mlm=False,

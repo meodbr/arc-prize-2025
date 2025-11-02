@@ -1,6 +1,7 @@
 from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_update
-from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding
+from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding, MistralModel
 from transformers import PreTrainedTokenizerFast, AutoTokenizer
+from transformers.data.data_collator import DataCollatorMixin
 import numpy as np
 import torch
 
@@ -29,30 +30,33 @@ class CustomRotaryEmbedding2D(MistralRotaryEmbedding):
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
 
-class Tokenizer2DPE(PreTrainedTokenizerFast):
-    def __call__(self, *args, **kwargs):
-        data_dict = super().__call__(*args, **kwargs)
-        
-        input_ids = []
-        attention_mask = []
+class CustomCompletionMaskDataCollator(DataCollatorMixin):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.return_tensors = "pt"
 
-        # Process grid input
-        if "grid" in data_dict:
-            grid_ids = self.encode_grid(data_dict["grid"])
-            input_ids.extend(grid_ids)
-            attention_mask.extend([1] * len(grid_ids))
+    def torch_call(self, examples, **kwargs):
+        batch = {}
+        print(examples)
+        batch["input_ids"] = torch.stack([torch.tensor(ex["input_ids"], dtype=torch.long) for ex in examples])
+        batch["position_ids"] = torch.stack([torch.tensor(ex["position_ids"], dtype=torch.long) for ex in examples])
+        batch["attention_mask"] = torch.stack([torch.tensor(ex["attention_mask"], dtype=torch.long) for ex in examples])
+        batch["labels"] = torch.stack([torch.tensor(ex["labels"], dtype=torch.long) for ex in examples])
+        # For every 0 in completion_mask, set corresponding label to -100
+        batch["labels"] = batch["labels"].masked_fill(
+            torch.stack([torch.tensor(ex["completion_mask"], dtype=torch.long) for ex in examples]) == 0,
+            -100
+        )
 
-        # Optionally include text tokens
-        if "text" in data_dict:
-            text_ids = self.tokenizer.encode(data_dict["text"], add_special_tokens=False)
-            input_ids.extend(text_ids)
-            attention_mask.extend([1] * len(text_ids))
+        return batch
 
-        return {
-            "input_ids": torch.tensor(input_ids),
-            "attention_mask": torch.tensor(attention_mask),
-            "labels": torch.tensor(data_dict.get("label", -100))  # -100 for ignore
-        }
+
+class CustomMistralModel2DPE(MistralModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.rotary_emb = CustomRotaryEmbedding2D(config)
+        self.post_init()
+
 
 # BASE CLASS (kept here to have an example)
 
