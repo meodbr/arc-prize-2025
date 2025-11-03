@@ -114,7 +114,7 @@ if __name__ == "__main__":
     # model_name = "HuggingFaceTB/SmolLM2-135M"
     # model_name = "meo-des/smollm2_arc_main_base_m"
     # model_name = "meo-des/nemo_arc_main_base_1s10e_m"
-    model_name = "meo-des/smollm2_arc_main_base_4096_2e_m"
+    model_name = "meo-des/nemo_arc_main_base_1s5e_m"
     model_revision = None
     only_train = True
     batch_size = 1
