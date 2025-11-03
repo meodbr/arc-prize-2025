@@ -147,4 +147,8 @@ DEFAULT_ENV_VARS = {
         "value": "nf4",
         "type": str
     },
+    "LORA_MODULES_TO_SAVE": {
+        "value": "",
+        "type": list[str]
+    }
 }

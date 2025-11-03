@@ -156,6 +156,7 @@ def setup_peft_lora(model):
     lora_alpha = ENV_VARS["LORA_ALPHA"]
     lora_dropout = ENV_VARS["LORA_DROPOUT"]
     use_rslora = ENV_VARS["USE_RSLORA"]
+    modules_to_save = ENV_VARS["LORA_MODULES_TO_SAVE"]
 
     # Configure PEFT LoRA
     peft_config = LoraConfig(
@@ -166,6 +167,7 @@ def setup_peft_lora(model):
         bias="none",
         use_rslora=use_rslora,
         task_type=TaskType.CAUSAL_LM,
+        modules_to_save=modules_to_save if len(modules_to_save) > 0 else None,
     )
 
     # Apply PEFT LoRA to the model
