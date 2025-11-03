@@ -157,6 +157,10 @@ class ConvEmbeddingSolver(Solver):
 
         # Explore grids
         arc_grids = [ArcGrid.for_generation(self.token_mapping) for _ in range(batch_size)]
+        print("Initial grids:")
+        for i, g in enumerate(arc_grids):
+            print(f"Grid {i}:")
+            print(g)
         start_nodes = [g.get_start_node() for g in arc_grids]
         for i, g in enumerate(arc_grids):
             g.assign_value(start_nodes[i], -1)
