@@ -2,6 +2,7 @@ import random
 import torch
 
 from arc_tartiflette.graph.grid import Grid, Node
+from arc_tartiflette.utils.constants import MAX_ARC_GRID_SHAPE
 
 
 def get_default_arc_token_mapping(tokenizer) -> dict[str, str]:
@@ -39,6 +40,59 @@ class ArcGrid(Grid):
     
         super().__init__(new_grid_data)
         self.token_mapping = token_mapping
+        self.generated = False
+    
+    @classmethod
+    def for_generation(cls, token_mapping):
+        max_shape = MAX_ARC_GRID_SHAPE
+        list_grid = [[-2]*max_shape[0]]*max_shape[1]
+        obj = cls(list_grid, token_mapping)
+        obj.generated = True
+        return obj
+    
+
+    def _prune_out_of_bounds(self, wall_pos: list[int]):
+        w_x, w_y = wall_pos
+
+        # Don't prune if already pruned
+        if w_x+1 < self.width and w_y+1 < self.height:
+            if self.grid[w_y+1][w_x+1].value == -3:
+                return
+
+
+        for y in range(w_y+1, self.height):
+            for x in range(w_x+1, self.width):
+                node = self.grid[y][x]
+                if node.value >= 0:
+                    print(f"Warning: End wall placed {wall_pos}, and  found {node.value}-colored node further ({x}, {y})")
+                else:
+                    node.value = -3
+        
+        pruned_explorable_nodes = []
+        for node in self.explorable_nodes:
+            x, y = node.grid_position()
+            if x > w_x and y > w_y:
+                continue
+            pruned_explorable_nodes.append(node)
+        self.explorable_nodes = pruned_explorable_nodes
+
+        pass
+    
+
+    def assign_value(self, node: Node, value):
+        assert self.generated == True
+        x, y = node.grid_position
+        if x > 0 and y > 0 and value == -1: # If we are assigning a non trivial wall
+            self._prune_out_of_bounds([x, y])
+        
+        if node.value != -2:
+            print(f"Warning, assigning {value} to node {node.grid_position}, but overriding previous value ({node.value})")
+        
+        node.value = value
+        self.mark_node_visited(node)
+
+
+
 
     def random_exploration(self):
         """

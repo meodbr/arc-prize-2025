@@ -31,3 +31,4 @@ DEFAULT_PROMPT_FORMAT = {
     "eos_token": "\n",
 }
 
+MAX_ARC_GRID_SHAPE = (32, 32)

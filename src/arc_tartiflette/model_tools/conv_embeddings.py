@@ -25,6 +25,7 @@ class CustomConvEmbedding(nn.Embedding):
         super().__init__(num_embeddings, embedding_dim, **kwargs)
         self.num_subtokens = num_subtokens
         self.norm = nn.RMSNorm(embedding_dim, eps=eps)  # Same as MistralRMSNorm
+        self.oob_token_id = 0 # TODO: Change to tokenizer oob token
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
@@ -38,7 +39,7 @@ class CustomConvEmbedding(nn.Embedding):
                              self.scale_grad_by_freq, self.sparse)
 
         # Mask out special tokens (ID == 0)
-        mask = (input != 0).unsqueeze(-1)  # (B, L, S, 1)
+        mask = (input != self.oob_token_id).unsqueeze(-1)  # (B, L, S, 1)
         embeds = embeds * mask  # zero-out embeddings of special tokens
 
         # Sum over subtoken dimension (S)
@@ -102,7 +103,7 @@ def tokenize_conv_grid(grid: list[list[int]], tokenizer: PreTrainedTokenizerFast
     return tokenized_path, grid_end
 
 
-def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, current_position: list[int]=(0,0)):
+def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, current_position: list[int]=(0,0), mask_output=False):
     fmt = get_architects_prompt_format(tokenizer)
 
     tokenized = []
@@ -112,21 +113,24 @@ def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, cur
             tokenized.append(tokenize_simple_char(id=fmt["input_beg_id"], tokenizer=tokenizer, current_position=current_position))
         else:
             tokenized.append(tokenize_simple_char(id=fmt["output_beg_id"], tokenizer=tokenizer, current_position=current_position))
+        
         current_position = (current_position[0]+1, current_position[1]+1)
-        tokenized_grid, new_pos = tokenize_conv_grid(
-            example[grid],
-            tokenizer,
-            current_position=current_position,
-        )
-        tokenized.append(tokenized_grid)
-        current_position = new_pos
+        if not mask_output or grid == "input":
+            tokenized_grid, new_pos = tokenize_conv_grid(
+                example[grid],
+                tokenizer,
+                current_position=current_position,
+            )
+            tokenized.append(tokenized_grid)
+            current_position = new_pos
+
     return {
         "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=0),
         "position_ids": torch.cat([t["position_ids"] for t in tokenized], dim=0),
         "labels": torch.cat([t["labels"] for t in tokenized], dim=0),
     }, current_position
 
-def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast):
+def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast, prompt=False):
     fmt = get_architects_prompt_format(tokenizer)
 
     tokenized = []
@@ -145,13 +149,16 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast):
             # Example separator
             tokenized.append(tokenize_simple_char(id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=current_position))
             current_position = (current_position[0]+1, current_position[1]+1)
+        
+        mask_output = prompt and i == (len(task["train"] + task["test"]) - 1) # Mask last output
 
-        tokenized_example, new_pos = tokenize_conv_example(example, tokenizer, current_position)
+        tokenized_example, new_pos = tokenize_conv_example(example, tokenizer, current_position, mask_output=mask_output)
         tokenized.append(tokenized_example)
         current_position = new_pos
 
-        tokenized.append(tokenize_simple_char(id=fmt["eos_token_id"], tokenizer=tokenizer, current_position=current_position))
-        current_position = (current_position[0]+1, current_position[1]+1)
+        if not mask_output:
+            tokenized.append(tokenize_simple_char(id=fmt["eos_token_id"], tokenizer=tokenizer, current_position=current_position))
+            current_position = (current_position[0]+1, current_position[1]+1)
 
 
     return {

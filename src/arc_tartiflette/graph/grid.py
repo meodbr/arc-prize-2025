@@ -16,7 +16,11 @@ class Node:
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
             if 0 <= nx < grid.width and 0 <= ny < grid.height:
-                neighbors.append(grid.nodes[ny][nx])
+                neighbor = grid.nodes[ny][nx]
+                if neighbor.value != -3:
+                    neighbors.append(neighbor)
+                else:
+                    neighbors.append(None)
             else:
                 neighbors.append(None)
         return neighbors
@@ -43,7 +47,8 @@ class Node:
     def tokenized(self, token_mapping):
         neighbors = self.visible_neighbors_when_visited
         if not self.visited:
-            print("Warning: tokenizing unvisited node")
+            if not self.parent.generated:
+                print("Warning: tokenizing unvisited node")
             neighbors = self.get_visible_neighbors()
 
         input_ids = []
