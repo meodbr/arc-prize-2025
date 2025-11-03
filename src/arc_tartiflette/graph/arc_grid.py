@@ -49,11 +49,11 @@ class ArcGrid(Grid):
     
 
     @classmethod
-    def for_generation(cls, token_mapping):
+    def for_generation(cls, token_mapping, name="grid_gen"):
         max_shape = MAX_ARC_GRID_SHAPE
         list_grid = [[-2]*(max_shape[0] + 2)] * (max_shape[1] + 2)
         print(f"list_grid for generation: {list_grid}")
-        obj = cls(list_grid, token_mapping, set_walls=False)
+        obj = cls(list_grid, token_mapping, set_walls=False, name=name)
         obj.generated = True
         return obj
     
