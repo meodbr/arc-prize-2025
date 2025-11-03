@@ -23,8 +23,6 @@ def get_default_arc_token_mapping(tokenizer) -> dict[str, str]:
         "original": original,
         "directions": direction_mapping,
         "out_of_bounds": tokenizer("<oob>")["input_ids"][-1],
-        "pad": tokenizer.pad_token_id,
-        "mask": tokenizer.mask_token_id,
     }
 
 
@@ -184,7 +182,7 @@ class ArcGrid(Grid):
 
 from transformers import AutoTokenizer
 if __name__ == "__main__":
-    tokenizer = AutoTokenizer.from_pretrained("meo-des/nemo_arc_main_base_1s10e_m")
+    tokenizer = AutoTokenizer.from_pretrained("meo-des/nemo_arc_main_base_1s5e_m")
     DEFAULT_ARC_TOKEN_MAPPING = get_default_arc_token_mapping(tokenizer)
     print(f"Default ARC token mapping:", DEFAULT_ARC_TOKEN_MAPPING)
     grid_data = [

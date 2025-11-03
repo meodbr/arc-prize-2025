@@ -38,6 +38,9 @@ class ConvEmbeddingSolver(Solver):
         self.sample_batch_size = sample_batch_size
         self.do_attempts = do_attempts
         self.temperature = temperature
+        print("Using ConvEmbeddingSolver with sample_batch_size =", self.sample_batch_size, "and temperature =", self.temperature)
+        print("Token mapping:", self.token_mapping)
+        print("Tokenizer vocab:", self.tokenizer.get_vocab())
 
     def solve(self, task: dict, logs="") -> dict[str, np.ndarray]:
         return self.solve_batch([task], logs=logs)[0]
@@ -109,10 +112,10 @@ class ConvEmbeddingSolver(Solver):
         print(f"Old cache seq len: {old_cache_size}")
         print(f"New cache seq len: {layer_shape[2]}")
         print(f"index shape: {index.shape}")
+        print(f"keys shape: {cache.layers[0].keys.shape}")
         for i in range(len(cache.layers)):
             new_keys = cache.layers[i].keys[:, :, old_cache_size:, :]
             new_values = cache.layers[i].values[:, :, old_cache_size:, :]
-            print(f"New keys shape: {new_keys.shape}, New values shape: {new_values.shape}")
             selected_key = torch.gather(new_keys, dim=2, index=index)
             selected_value = torch.gather(new_values, dim=2, index=index)
 
