@@ -98,28 +98,28 @@ class ConvEmbeddingSolver(Solver):
         return selected_candidate_idx, selected_token_id
     
 
-    def append_selected_cache(self, old_cache, new_cache, candidate_idx):
+    def append_selected_cache(self, cache, old_cache_size, candidate_idx):
         """
         Keep only the KV cache of the selected token for the rest of the generation
         """
 
-        layer_shape = new_cache.layers[0].keys.shape
+        layer_shape = cache.layers[0].keys.shape
         index = candidate_idx.view(-1, 1, 1, 1).expand(-1, layer_shape[1], 1, layer_shape[3])
 
-        old_seq_len = old_cache.layers[0].keys.shape[2]
-        print(f"Old cache seq len: {old_seq_len}")
+        print(f"Old cache seq len: {old_cache_size}")
+        print(f"New cache seq len: {layer_shape[2]}")
         print(f"index shape: {index.shape}")
-        for i in range(len(new_cache.layers)):
-            new_keys = new_cache.layers[i].keys[:, :, old_seq_len:, :]
-            new_values = new_cache.layers[i].values[:, :, old_seq_len:, :]
+        for i in range(len(cache.layers)):
+            new_keys = cache.layers[i].keys[:, :, old_cache_size:, :]
+            new_values = cache.layers[i].values[:, :, old_cache_size:, :]
             print(f"New keys shape: {new_keys.shape}, New values shape: {new_values.shape}")
             selected_key = torch.gather(new_keys, dim=2, index=index)
             selected_value = torch.gather(new_values, dim=2, index=index)
 
-            old_cache.layers[i].keys   = torch.cat([old_cache.layers[i].keys, selected_key], dim=2)
-            old_cache.layers[i].values = torch.cat([old_cache.layers[i].values, selected_value], dim=2)
+            cache.layers[i].keys   = torch.cat([cache.layers[i].keys[:, :, :old_cache_size, :], selected_key], dim=2)
+            cache.layers[i].values = torch.cat([cache.layers[i].values[:, :, :old_cache_size, :], selected_value], dim=2)
         
-        return old_cache
+        return cache
     
 
     def inverse_token_mapping(self, token_id: int) -> int:
@@ -224,7 +224,7 @@ class ConvEmbeddingSolver(Solver):
             print(f"Input IDs shape: {input_ids.shape}, Position IDs shape: {position_ids.shape}, Attention mask shape: {attention_mask.shape}")
 
             # Infer model
-            old_cache = cache.clone()
+            old_cache_size = cache.layers[0].keys.shape[2]
             logits, cache = self.model(
                 input_ids=input_ids,
                 position_ids=position_ids,
@@ -236,7 +236,7 @@ class ConvEmbeddingSolver(Solver):
             candidate_idx, token_id = self.select_next_token(logits, self.temperature)
 
             # Keep cache only for that candidate
-            cache = self.append_selected_cache(old_cache=old_cache, new_cache=cache, candidate_idx=candidate_idx)
+            cache = self.append_selected_cache(cache=cache, old_cache_size=old_cache_size, candidate_idx=candidate_idx)
 
             # Update grids
             for i, g in enumerate(arc_grids):
