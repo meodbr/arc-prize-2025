@@ -75,7 +75,7 @@ class CustomMistralModelConvEmbedding(MistralForCausalLM):
         print("CustomMistralModelConvEmbedding.model.generation_config:", self.model.generation_config)
 
 
-def tokenize_simple_char(char: str, tokenizer: PreTrainedTokenizerFast, current_position: tuple[int, int], id:int=None) -> list[int]:
+def tokenize_simple_char(char: str=None, tokenizer: PreTrainedTokenizerFast=None, current_position: list[int]=[0, 0], id:int=None) -> dict:
     token_mapping = get_default_arc_token_mapping(tokenizer)
     char_token_id = id if id else tokenizer(char)["input_ids"][-1]
     tokenized = {

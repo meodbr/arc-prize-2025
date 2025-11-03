@@ -6,7 +6,8 @@ import huggingface_hub as hf
 import os
 
 import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
-from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, frac_dataset_dict
+from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, frac_dataset_dict, tokenize_dataset_2DPE
+from arc_tartiflette.model_tools.conv_embeddings import tokenize_dataset_conv
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
@@ -89,6 +90,10 @@ def test_time_training(
     match ENV_VARS["MODEL_TYPE"]:
         case "base":
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
+        case "2DPE":
+            tokenized_datasets = tokenize_dataset_2DPE(dataset_dict, tokenizer)
+        case "conv":
+            tokenized_datasets = tokenize_dataset_conv(dataset_dict, tokenizer)
         case _:
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
 
