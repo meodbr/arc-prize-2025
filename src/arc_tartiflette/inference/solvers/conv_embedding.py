@@ -126,14 +126,16 @@ class ConvEmbeddingSolver(Solver):
     
 
     def inverse_token_mapping(self, token_id: int) -> int:
-        for k, v in self.token_mapping.items():
-            if isinstance(v, list):
-                if token_id in v:
-                    return k
+        for k, v in self.token_mapping["original"].items():
             if v == token_id:
                 return k
-        return None
-
+        for k, v in self.token_mapping["directions"].items():
+            if token_id in v:
+                color_str = k.split('_')[0]
+                return int(color_str)
+        if token_id == self.token_mapping["out_of_bounds"]:
+            return -3
+        raise ValueError(f"Token ID {token_id} not found in token mapping")
 
     def solve_batch(self, tasks: list[dict], logs="") -> list[dict[str, np.ndarray]]:
         max_len = 0
