@@ -162,7 +162,7 @@ class ConvEmbeddingSolver(Solver):
             print(f"Grid {i}:")
             print(g)
         for i, g in enumerate(arc_grids):
-            g.assign_value(g.grid[0][0], -1)
+            g.assign_value(g.nodes[0][0], -1)
 
         # Prompt inference
         logits, cache = self.model(
