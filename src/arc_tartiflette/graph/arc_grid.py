@@ -60,8 +60,6 @@ class ArcGrid(Grid):
             visited_nodes.append(next_node)
             next_node.mark_visited()
             explorable = self.get_explorable_nodes()
-            print(f"Visited node at {next_node.grid_position} with value {next_node.value}. {len(explorable)} explorable nodes remaining.")
-            print(f"  Visible neighbors when visited: {[n.grid_position if n else None for n in next_node.visible_neighbors_when_visited]}")
 
         for row in self.nodes:
             assert all(node.visited for node in row if node.value != -1), "All non-wall nodes should be visited"

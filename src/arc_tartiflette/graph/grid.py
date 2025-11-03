@@ -68,14 +68,9 @@ class Grid:
         self.nodes = [[Node(value=0, parent=self, grid_position=(x, y)) for x in range(self.width)] for y in range(self.height)]
         assert self.height == 0 or all(len(row) == len(data_2d_list[0]) for row in data_2d_list), "All rows must have the same length"
 
-        print(f"Creating grid of height {self.height}")
-        print(f"Creating grid of width {self.width}")
-
         for y in range(self.height):
             for x in range(self.width):
-                print(f"Setting node at ({x}, {y}) to value {data_2d_list[y][x]}")
                 self.nodes[y][x].value = data_2d_list[y][x]
-        print(f"Grid of dim ({self.width}, {self.height}) created.")
 
     def get_explorable_nodes(self):
         explorable = []

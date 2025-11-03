@@ -71,8 +71,6 @@ class CustomMistralModelConvEmbedding(MistralForCausalLM):
         print("After post_init:")
         print("CustomMistralModelConvEmbedding.config:", self.config)
         print("CustomMistralModelConvEmbedding.generation_config:", self.generation_config)
-        print("CustomMistralModelConvEmbedding.model.config:", self.model.config)
-        print("CustomMistralModelConvEmbedding.model.generation_config:", self.model.generation_config)
 
 
 def tokenize_simple_char(char: str=None, tokenizer: PreTrainedTokenizerFast=None, current_position: list[int]=[0, 0], id:int=None) -> dict:
@@ -122,7 +120,6 @@ def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, cur
         )
         tokenized.append(tokenized_grid)
         current_position = new_pos
-    print("Tokenized: ", tokenized)
     return {
         "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=0),
         "position_ids": torch.cat([t["position_ids"] for t in tokenized], dim=0),
