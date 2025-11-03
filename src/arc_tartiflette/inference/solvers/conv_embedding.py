@@ -60,7 +60,7 @@ class ConvEmbeddingSolver(Solver):
             }, attention_mask
 
     
-    def select_next_token(
+    def select_next_token(self,
         logits: torch.Tensor,
         temperature: float = 1.0,
     ):
