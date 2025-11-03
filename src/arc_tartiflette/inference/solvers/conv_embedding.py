@@ -38,6 +38,7 @@ class ConvEmbeddingSolver(Solver):
         self.sample_batch_size = sample_batch_size
         self.do_attempts = do_attempts
         self.temperature = temperature
+        self.model.eval()
         print("Using ConvEmbeddingSolver with sample_batch_size =", self.sample_batch_size, "and temperature =", self.temperature)
         print("Token mapping:", self.token_mapping)
         print("Tokenizer vocab:", self.tokenizer.get_vocab())
@@ -176,11 +177,12 @@ class ConvEmbeddingSolver(Solver):
             g.assign_value(g.nodes[0][0], -1)
 
         # Prompt inference
-        logits, cache = self.model(
-            input_ids=input_ids,
-            position_ids=position_ids,
-            attention_mask=attention_mask,
-        )[:2]
+        with torch.no_grad():
+            logits, cache = self.model(
+                input_ids=input_ids,
+                position_ids=position_ids,
+                attention_mask=attention_mask,
+            )[:2]
 
         explorable_nodes = [g.get_explorable_nodes() for g in arc_grids]
         for nodes in explorable_nodes:
@@ -230,12 +232,14 @@ class ConvEmbeddingSolver(Solver):
 
             # Infer model
             old_cache_size = cache.layers[0].keys.shape[2]
-            logits, cache = self.model(
-                input_ids=input_ids,
-                position_ids=position_ids,
-                past_key_values=cache,
-                attention_mask=attention_mask,
-            )[:2]
+            with torch.no_grad():
+                logits, cache = self.model(
+                    input_ids=input_ids,
+                    position_ids=position_ids,
+                    past_key_values=cache,
+                    attention_mask=attention_mask,
+                    use_cache=True,
+                )[:2]
 
             # Select which candidate to pick
             candidate_idx, token_id = self.select_next_token(logits, self.temperature)
