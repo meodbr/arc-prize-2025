@@ -53,7 +53,6 @@ class Node:
 
         input_ids = []
         position_ids = list(self.grid_position)
-        labels = token_mapping["original"][self.value]
 
         for direction, neighbor in enumerate(neighbors):
             if neighbor:
@@ -61,11 +60,18 @@ class Node:
             else:
                 input_ids.append(token_mapping["out_of_bounds"])
 
-        return {
-            "input_ids": input_ids,
-            "position_ids": position_ids,
-            "labels": labels
-        }
+        if self.parent.generated:
+            return {
+                "input_ids": input_ids,
+                "position_ids": position_ids,
+            }
+        else:
+            labels = token_mapping["original"][self.value]
+            return {
+                "input_ids": input_ids,
+                "position_ids": position_ids,
+                "labels": labels
+            }
 
 
 class Grid:

@@ -23,6 +23,8 @@ def get_default_arc_token_mapping(tokenizer) -> dict[str, str]:
         "original": original,
         "directions": direction_mapping,
         "out_of_bounds": tokenizer("<oob>")["input_ids"][-1],
+        "pad": tokenizer.pad_token_id,
+        "mask": tokenizer.mask_token_id,
     }
 
 
@@ -82,8 +84,6 @@ class ArcGrid(Grid):
                 continue
             pruned_explorable_nodes.append(node)
         self.explorable_nodes = pruned_explorable_nodes
-
-        pass
     
 
     def assign_value(self, node: Node, value):
