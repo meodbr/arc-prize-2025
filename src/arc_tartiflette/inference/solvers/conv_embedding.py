@@ -92,6 +92,8 @@ class ConvEmbeddingSolver(Solver):
 
         # (6) Get the token id for the selected candidate
         selected_token_id = torch.gather(candidate_selected_token_id, dim=-1, index=selected_candidate_idx.unsqueeze(-1)).squeeze(-1)
+        print(f"Selected candidate indices: {selected_candidate_idx}")
+        print(f"Selected token IDs: {selected_token_id}")
 
         return selected_candidate_idx, selected_token_id
     
@@ -105,9 +107,12 @@ class ConvEmbeddingSolver(Solver):
         index = candidate_idx.view(-1, 1, 1, 1).expand(-1, layer_shape[1], 1, layer_shape[3])
 
         old_seq_len = old_cache.layers[0].keys.shape[2]
+        print(f"Old cache seq len: {old_seq_len}")
+        print(f"index shape: {index.shape}")
         for i in range(len(new_cache.layers)):
             new_keys = new_cache.layers[i].keys[:, :, old_seq_len:, :]
             new_values = new_cache.layers[i].values[:, :, old_seq_len:, :]
+            print(f"New keys shape: {new_keys.shape}, New values shape: {new_values.shape}")
             selected_key = torch.gather(new_keys, dim=2, index=index)
             selected_value = torch.gather(new_values, dim=2, index=index)
 
