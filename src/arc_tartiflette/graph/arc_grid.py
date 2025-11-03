@@ -86,7 +86,7 @@ class ArcGrid(Grid):
         if x > 0 and y > 0 and value == -1: # If we are assigning a non trivial wall
             self._prune_out_of_bounds([x, y])
         
-        if node.value != -2:
+        if node.value != -2 and not (x == 0 and y == 0):
             print(f"Warning, assigning {value} to node {node.grid_position}, but overriding previous value ({node.value})")
         
         node.value = value
