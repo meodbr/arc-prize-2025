@@ -169,11 +169,14 @@ class ConvEmbeddingSolver(Solver):
         )[:2]
 
         explorable_nodes = [random.shuffle(g.get_explorable_nodes()) for g in arc_grids]
+        print("Starting grid generation:")
+        print("Explorable nodes:", explorable_nodes)
         while not all(exp_nodes == [] for exp_nodes in explorable_nodes):
 
             # Tokenize and pad potential next nodes candidates
             for nodes in explorable_nodes:
                 tokenized_nodes = [n.tokenized(generation=True) for n in nodes[:self.sample_batch_size]]
+                print(f"Tokenized nodes: {tokenized_nodes}")
 
                 input_ids_pad = [self.tokenizer.pad_token_id]*8
                 position_ids_pad = [0, 0]
@@ -182,14 +185,15 @@ class ConvEmbeddingSolver(Solver):
                 task_input_ids = [tok_n["input_ids"] for tok_n in tokenized_nodes] + [input_ids_pad]*pad_length
                 task_position_ids = [tok_n["position_ids"] for tok_n in tokenized_nodes] + [position_ids_pad]*pad_length
 
-                input_ids_list.append(task_input_ids)
-                position_ids_list.append(task_position_ids)
-                attention_mask_list.append([1]*len(tokenized_nodes) + [0]*pad_length)
+                input_ids_list.append([task_input_ids])
+                position_ids_list.append([task_position_ids])
+                attention_mask_list.append([[1]*len(tokenized_nodes) + [0]*pad_length])
 
             # Collate batches
             input_ids = torch.cat(input_ids_list, dim=0).to(self.model.device)
             position_ids = torch.cat(position_ids_list, dim=0).to(self.model.device)
             attention_mask = torch.cat(attention_mask_list, dim=0).to(self.model.device)
+            print(f"Input IDs shape: {input_ids.shape}, Position IDs shape: {position_ids.shape}, Attention mask shape: {attention_mask.shape}")
 
             # Infer model
             logits, new_cache = self.model(
