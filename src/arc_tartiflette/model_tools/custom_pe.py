@@ -60,10 +60,6 @@ class CustomMistralModel2DPE(MistralForCausalLM):
     def __init__(self, config):
         super().__init__(config)
         self.model = CustomMistralModel2DPEBase(config)
-        print("CustomMistralModel2DPE.config:", self.config)
-        print("CustomMistralModel2DPE.generation_config:", self.generation_config)
-        print("CustomMistralModel2DPE.model.config:", self.model.config)
-        print("CustomMistralModel2DPE.model.generation_config:", self.model.generation_config)
         self.post_init()
         print("After post_init:")
         print("CustomMistralModel2DPE.config:", self.config)

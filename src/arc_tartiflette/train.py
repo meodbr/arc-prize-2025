@@ -141,6 +141,14 @@ def shrink_vocab(model, tokenizer):
     print(f"New tokenizer vocab size: {len(tokenizer)}")
     print(f"Model parameters after vocab shrink: {utils.count_parameters(model)/1e9:.3f}B")
 
+    if ENV_VARS["MODEL_TYPE"] == "conv":
+        print(f"Extending tokenizer vocab for conv Embedding...")
+        tokenizer_tools.extend_tokenizer_vocab_for_arc_grid(tokenizer)
+        print(f"Extended tokenizer vocab size for conv E: {len(tokenizer)}")
+        tokenizer_tools.extend_model_embeddings_for_arc_grid(model, tokenizer)
+        print(f"Model parameters after extending for conv E: {utils.count_parameters(model)/1e9:.3f}B")
+
+
 
 def setup_peft_lora(model):
     lora_target_modules = ENV_VARS["LORA_TARGET_MODULES"]
@@ -251,6 +259,8 @@ def train(
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
         case "2DPE":
             tokenized_datasets = tokenize_dataset_2DPE(dataset_dict, tokenizer)
+        case "conv":
+            tokenized_datasets = tokenize_dataset_conv(dataset_dict, tokenizer)
         case _:
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
 
