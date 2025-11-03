@@ -6,6 +6,7 @@ class Node:
         self.grid_position = grid_position
         self.visited = False
         self.visible_neighbors_when_visited = []
+        self.explorable = False
 
     def get_neighbors(self):
         neighbors = []
@@ -35,6 +36,7 @@ class Node:
     def mark_visited(self):
         assert self.visited is False, "Node has already been visited"
         self.visited = True
+        self.explorable = False
         self.visible_neighbors_when_visited = self.get_visible_neighbors()
         return self.visible_neighbors_when_visited
     
@@ -66,20 +68,28 @@ class Grid:
         self.height = len(data_2d_list)
         self.width = len(data_2d_list[0]) if self.height > 0 else 0
         self.nodes = [[Node(value=0, parent=self, grid_position=(x, y)) for x in range(self.width)] for y in range(self.height)]
+        self.visited_nodes = []
+        self.explorable_nodes = [self.get_start_node()]
         assert self.height == 0 or all(len(row) == len(data_2d_list[0]) for row in data_2d_list), "All rows must have the same length"
 
         for y in range(self.height):
             for x in range(self.width):
                 self.nodes[y][x].value = data_2d_list[y][x]
 
+    def get_start_node(self):
+        return self.nodes[0][0]  # Assuming start is always at (1, 1) after adding walls
+
     def get_explorable_nodes(self):
-        explorable = []
-        for row in self.nodes:
-            for node in row:
-                if node.visited:
-                    for neighbor in node.get_unvisited_neighbors():
-                        if neighbor is not None:
-                            explorable.append(neighbor)
-        # Deduplicate based on grid_position
-        explorable = list({node.grid_position: node for node in explorable}.values())
-        return explorable
+        return self.explorable_nodes
+    
+    def mark_node_visited(self, node: Node):
+        node.mark_visited()
+        self.visited_nodes.append(node)
+        self.explorable_nodes.remove(node)
+
+        # Update explorable nodes
+        for neighbor in node.get_unvisited_neighbors():
+            if neighbor:
+                if not neighbor.explorable:
+                    neighbor.explorable = True
+                    self.explorable_nodes.append(neighbor)

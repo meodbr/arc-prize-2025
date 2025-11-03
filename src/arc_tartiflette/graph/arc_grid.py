@@ -40,31 +40,23 @@ class ArcGrid(Grid):
         super().__init__(new_grid_data)
         self.token_mapping = token_mapping
 
-    def get_start_node(self):
-        return self.nodes[0][0]  # Assuming start is always at (1, 1) after adding walls
-    
     def random_exploration(self):
         """
         Perform a random exploration of the grid starting from the start node.
         Returns a list of tokenized nodes in the order they were visited.
         """
-        start_node = self.get_start_node()
-        current_node = start_node
-        visited_nodes = [current_node]
-        current_node.mark_visited()
         explorable = self.get_explorable_nodes()
 
         while len(explorable) > 0:
             next_node = random.choice(explorable)
             assert next_node and not next_node.visited, "Next node must be unvisited and valid"
-            visited_nodes.append(next_node)
-            next_node.mark_visited()
+            self.mark_node_visited(next_node)
             explorable = self.get_explorable_nodes()
 
         for row in self.nodes:
             assert all(node.visited for node in row if node.value != -1), "All non-wall nodes should be visited"
 
-        tokenized_nodes = [node.tokenized(self.token_mapping) for node in visited_nodes]
+        tokenized_nodes = [node.tokenized(self.token_mapping) for node in self.visited_nodes]
         reformatted = {
             "input_ids": [tn["input_ids"] for tn in tokenized_nodes],
             "position_ids": [tn["position_ids"] for tn in tokenized_nodes],
