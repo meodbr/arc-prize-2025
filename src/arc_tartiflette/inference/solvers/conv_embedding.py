@@ -186,12 +186,27 @@ class ConvEmbeddingSolver(Solver):
                 position_ids_pad = [0, 0]
                 pad_length = self.sample_batch_size - len(tokenized_nodes)
 
-                task_input_ids = [tok_n["input_ids"] for tok_n in tokenized_nodes] + [input_ids_pad]*pad_length
-                task_position_ids = [tok_n["position_ids"] for tok_n in tokenized_nodes] + [position_ids_pad]*pad_length
+                # pad node sequences to uniform length = sample_batch_size (e.g. 16)
+                task_input_ids = [
+                    tok_n["input_ids"] for tok_n in tokenized_nodes
+                ] + [input_ids_pad] * pad_length  # → [16, 8]
+                
+                task_position_ids = [
+                    tok_n["position_ids"] for tok_n in tokenized_nodes
+                ] + [position_ids_pad] * pad_length  # → [16, 2]
+                
+                attention_mask_vals = [1] * len(tokenized_nodes) + [0] * pad_length  # → [16]
 
-                input_ids_list.append(torch.tensor(task_input_ids, dtype=torch.long).unsqueeze(0))
-                position_ids_list.append(torch.tensor(task_position_ids, dtype=torch.long).unsqueeze(0))
-                attention_mask_list.append(torch.tensor([1]*len(tokenized_nodes) + [0]*pad_length, dtype=torch.long).unsqueeze(0))
+                # convert to tensors correctly (no extra [ ... ] nesting)
+                input_ids_tensor = torch.tensor(task_input_ids, dtype=torch.long)          # [16, 8]
+                position_ids_tensor = torch.tensor(task_position_ids, dtype=torch.long)    # [16, 2]
+                attention_mask_tensor = torch.tensor(attention_mask_vals, dtype=torch.long)  # [16]
+
+                # add batch dimension
+                input_ids_list.append(input_ids_tensor.unsqueeze(0))        # [1, 16, 8]
+                position_ids_list.append(position_ids_tensor.unsqueeze(0))  # [1, 16, 2]
+                attention_mask_list.append(attention_mask_tensor.unsqueeze(0))  # [1, 16]
+                
 
             # Collate batches
             input_ids = torch.cat(input_ids_list, dim=0).to(self.model.device)
