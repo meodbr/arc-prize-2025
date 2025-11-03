@@ -98,7 +98,13 @@ class Grid:
 
         # Update explorable nodes
         for neighbor in node.get_unvisited_neighbors():
+            print("Checking neighbor for explorable:", end=" ")
             if neighbor:
+                print(neighbor.grid_position, neighbor.value)
+                print("  Explorable before:", neighbor.explorable)
                 if not neighbor.explorable:
+                    print("  Marking as explorable")
                     neighbor.explorable = True
                     self.explorable_nodes.append(neighbor)
+                else:
+                    print("  Already explorable")

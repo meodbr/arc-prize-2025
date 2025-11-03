@@ -27,7 +27,7 @@ def get_default_arc_token_mapping(tokenizer) -> dict[str, str]:
 
 
 class ArcGrid(Grid):
-    def __init__(self, list_grid: list[list[int]], token_mapping: dict, set_walls: bool=True):
+    def __init__(self, list_grid: list[list[int]], token_mapping: dict, set_walls: bool=True, name="grid"):
         # Surround with walls (value=-1)
         height = len(list_grid)
         width = len(list_grid[0]) if height > 0 else 0
@@ -45,7 +45,9 @@ class ArcGrid(Grid):
         super().__init__(new_grid_data)
         self.token_mapping = token_mapping
         self.generated = False
+        self.name = name
     
+
     @classmethod
     def for_generation(cls, token_mapping):
         max_shape = MAX_ARC_GRID_SHAPE
@@ -95,6 +97,10 @@ class ArcGrid(Grid):
         
         node.value = value
         self.mark_node_visited(node)
+    
+    def assign_value_at(self, x: int, y: int, value: int):
+        node = self.grid[y][x]
+        self.assign_value(node, value)
 
 
     def extract_2D_grid(self) -> list[list[int]]:
