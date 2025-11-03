@@ -156,13 +156,14 @@ class ConvEmbeddingSolver(Solver):
         attention_mask = torch.cat(attention_mask_list, dim=0).to(self.model.device)
 
         # Explore grids
-        arc_grids = [ArcGrid.for_generation(self.token_mapping) for _ in range(batch_size)]
+        arc_grids = [ArcGrid.for_generation(self.token_mapping, name=f"grid_{i}") for i in range(batch_size)]
         print("Initial grids:")
         for i, g in enumerate(arc_grids):
             print(f"Grid {i}:")
             print(g)
         for i, g in enumerate(arc_grids):
             g.assign_value(g.nodes[0][0], -1)
+            print(f"Grid {g.name} after assigning wall at (0,0):")
             print(f"Explorable nodes after assigning wall at (0,0) for grid {i}: {g.get_explorable_nodes()}")
 
         # Prompt inference
@@ -173,6 +174,7 @@ class ConvEmbeddingSolver(Solver):
         )[:2]
 
         explorable_nodes = [random.shuffle(g.get_explorable_nodes()) for g in arc_grids]
+        print(f"Explorable without random shuffle: {[g.get_explorable_nodes() for g in arc_grids]}")
         print("Starting grid generation:")
         print("Explorable nodes:", explorable_nodes)
         while not all(exp_nodes == [] for exp_nodes in explorable_nodes):

@@ -108,3 +108,5 @@ class Grid:
                     self.explorable_nodes.append(neighbor)
                 else:
                     print("  Already explorable")
+            else:
+                print("None neighbor")
