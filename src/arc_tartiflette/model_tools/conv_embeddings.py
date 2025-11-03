@@ -2,7 +2,7 @@ from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_u
 from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding, MistralModel, MistralForCausalLM
 from transformers import PreTrainedTokenizerFast, AutoTokenizer
 from transformers.data.data_collator import DataCollatorMixin
-from datasets import DatasetDict
+from datasets import DatasetDict, Dataset
 import numpy as np
 import torch
 import torch.nn as nn
@@ -77,13 +77,13 @@ class CustomMistralModelConvEmbedding(MistralForCausalLM):
 
 def tokenize_simple_char(char: str=None, tokenizer: PreTrainedTokenizerFast=None, current_position: list[int]=[0, 0], id:int=None) -> dict:
     token_mapping = get_default_arc_token_mapping(tokenizer)
-    char_token_id = id if id else tokenizer(char)["input_ids"][-1]
+    char_token_id = id if id else tokenizer(str(char))["input_ids"][-1]
     tokenized = {
         "input_ids": torch.tensor([[char_token_id] + [token_mapping["out_of_bounds"]]*7], dtype=torch.long),
         "position_ids": torch.tensor([list(current_position)], dtype=torch.long),
         "labels": torch.tensor([char_token_id], dtype=torch.long)
     }
-    return tokenized,
+    return tokenized
 
 
 def tokenize_conv_grid(grid: list[list[int]], tokenizer: PreTrainedTokenizerFast, current_position: tuple[int, int]=(0,0)):
@@ -111,9 +111,9 @@ def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, cur
 
     for grid in ["input", "output"]:
         if grid == "input":
-            tokenized.append(tokenize_simple_char(id=fmt["input_beg_id"]), tokenizer=tokenizer, current_position=current_position)
+            tokenized.append(tokenize_simple_char(id=fmt["input_beg_id"], tokenizer=tokenizer, current_position=current_position))
         else:
-            tokenized.append(tokenize_simple_char(id=fmt["output_beg_id"]), tokenizer=tokenizer, current_position=current_position)
+            tokenized.append(tokenize_simple_char(id=fmt["output_beg_id"], tokenizer=tokenizer, current_position=current_position))
         current_position = (current_position[0]+1, current_position[1]+1)
         tokenized_grid, new_pos = tokenize_conv_grid(
             example[grid],
@@ -122,16 +122,18 @@ def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, cur
         )
         tokenized.append(tokenized_grid)
         current_position = new_pos
+    print("Tokenized: ", tokenized)
     return {
-        "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=1),
-        "position_ids": torch.cat([t["position_ids"] for t in tokenized], dim=1),
-        "labels": torch.cat([t["labels"] for t in tokenized], dim=1),
+        "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=0),
+        "position_ids": torch.cat([t["position_ids"] for t in tokenized], dim=0),
+        "labels": torch.cat([t["labels"] for t in tokenized], dim=0),
     }, current_position
 
 def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast):
     fmt = get_architects_prompt_format(tokenizer)
 
     tokenized = []
+    current_position = [0, 0]
 
     # Task beg
     tokenized.append(tokenize_simple_char(id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=(0,0)))
@@ -156,9 +158,9 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast):
 
 
     return {
-        "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=1),
-        "position_ids": torch.cat([t["position_ids"] for t in tokenized], dim=1),
-        "labels": torch.cat([t["labels"] for t in tokenized], dim=1),
+        "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=0),
+        "position_ids": torch.cat([t["position_ids"] for t in tokenized], dim=0),
+        "labels": torch.cat([t["labels"] for t in tokenized], dim=0),
     }
 
 def tokenize_row_conv(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding="max_length", truncation=True):
@@ -176,9 +178,10 @@ def tokenize_row_conv(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding
         tokenized["labels"] = tokenized["labels"][:max_length]
     elif padding == "max_length" and len(tokenized["input_ids"]) < max_length:
         pad_length = max_length - len(tokenized["input_ids"])
-        tokenized["input_ids"].extend([[tokenizer.pad_token_id]*8] * pad_length)
-        tokenized["position_ids"].extend([[0,0]] * pad_length)
-        tokenized["labels"].extend([-100] * pad_length)
+
+        tokenized["input_ids"] = torch.cat([tokenized["input_ids"], torch.tensor([[tokenizer.pad_token_id]*8] * pad_length, dtype=torch.long)], dim=0)
+        tokenized["position_ids"] = torch.cat([tokenized["position_ids"], torch.tensor([[0,0]] * pad_length, dtype=torch.long)], dim=0)
+        tokenized["labels"] = torch.cat([tokenized["labels"], torch.tensor([-100] * pad_length, dtype=torch.long)], dim=0)
 
     attention_mask = [1 if id != -100 else 0 for id in tokenized["labels"]]
 
@@ -211,3 +214,47 @@ def tokenize_dataset_conv(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
     print("---- Dataset tokenized with Conv tokenizer. ----")
     print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
     return tokenized_datasets
+
+
+if __name__ == "__main__":    # Test the conv tokenizer
+    tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
+    example_task = {
+        "train": [
+            {
+                "input": [
+                    [1, 2],
+                    [3, 4]
+                ],
+                "output": [
+                    [4, 3],
+                    [2, 1]
+                ]
+            }
+        ],
+        "test": [
+            {
+                "input": [
+                    [5, 6],
+                    [7, 8]
+                ],
+                "output": [
+                    [8, 7],
+                    [6, 5]
+                ]
+            }
+        ]
+    }
+    tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+    row = {"task": example_task}
+    tokenized = tokenize_row_conv(row, tokenizer, max_length=128)
+    print("Tokenized example input_ids:", tokenized["input_ids"])
+    print("Tokenized example position_ids:", tokenized["position_ids"])
+    print("Tokenized example labels:", tokenized["labels"])
+    print("Tokenized example attention_mask:", tokenized["attention_mask"])
+    
+    hf_dataset = Dataset.from_list([row])
+    dataset_dict = DatasetDict({
+        "train": hf_dataset,
+    })
+    tokenized_datasets = tokenize_dataset_conv(dataset_dict, tokenizer)
+    print("Tokenized dataset example input_ids:", tokenized_datasets['train'][0])
