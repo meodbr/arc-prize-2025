@@ -173,9 +173,9 @@ class ConvEmbeddingSolver(Solver):
             attention_mask=attention_mask,
         )[:2]
 
-        explorable_nodes = [random.shuffle(g.get_explorable_nodes()) for g in arc_grids]
-        print(f"Explorable without random shuffle: {[g.get_explorable_nodes() for g in arc_grids]}")
-        print("Starting grid generation:")
+        explorable_nodes = [g.get_explorable_nodes() for g in arc_grids]
+        for nodes in explorable_nodes:
+            random.shuffle(nodes)
         print("Explorable nodes:", explorable_nodes)
         while not all(exp_nodes == [] for exp_nodes in explorable_nodes):
 
@@ -236,7 +236,9 @@ class ConvEmbeddingSolver(Solver):
                 print(g)
 
             # Get reacheable nodes for next inference
-            explorable_nodes = [random.shuffle(g.get_explorable_nodes()) for g in arc_grids]
+            explorable_nodes = [g.get_explorable_nodes() for g in arc_grids]
+            for nodes in explorable_nodes:
+                random.shuffle(nodes)
 
         # Extract solutions
         attempts_list = []
