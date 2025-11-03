@@ -144,15 +144,16 @@ class ConvEmbeddingSolver(Solver):
         input_ids_list = []
         position_ids_list = []
         attention_mask_list = []
-        attention_mask = None
         for task in tokenized_tasks:
             task, attention_mask = self.pad_task(task, max_len, padding_side="left", pad_token_id=self.tokenizer.pad_token_id)
             input_ids_list.append(task["input_ids"].unsqueeze(0))
             position_ids_list.append(task["position_ids"].unsqueeze(0))
+            attention_mask_list.append(attention_mask.unsqueeze(0))
         
         # Collate batches
         input_ids = torch.cat(input_ids_list, dim=0).to(self.model.device)
         position_ids = torch.cat(position_ids_list, dim=0).to(self.model.device)
+        attention_mask = torch.cat(attention_mask_list, dim=0).to(self.model.device)
 
         # Explore grids
         arc_grids = [ArcGrid.for_generation(self.token_mapping)]
