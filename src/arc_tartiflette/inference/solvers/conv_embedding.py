@@ -189,9 +189,9 @@ class ConvEmbeddingSolver(Solver):
                 task_input_ids = [tok_n["input_ids"] for tok_n in tokenized_nodes] + [input_ids_pad]*pad_length
                 task_position_ids = [tok_n["position_ids"] for tok_n in tokenized_nodes] + [position_ids_pad]*pad_length
 
-                input_ids_list.append([task_input_ids])
-                position_ids_list.append([task_position_ids])
-                attention_mask_list.append([[1]*len(tokenized_nodes) + [0]*pad_length])
+                input_ids_list.append(torch.tensor(task_input_ids, dtype=torch.long).unsqueeze(0))
+                position_ids_list.append(torch.tensor(task_position_ids, dtype=torch.long).unsqueeze(0))
+                attention_mask_list.append(torch.tensor([1]*len(tokenized_nodes) + [0]*pad_length, dtype=torch.long).unsqueeze(0))
 
             # Collate batches
             input_ids = torch.cat(input_ids_list, dim=0).to(self.model.device)
