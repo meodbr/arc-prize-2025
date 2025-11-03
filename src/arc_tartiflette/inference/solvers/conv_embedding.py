@@ -178,6 +178,9 @@ class ConvEmbeddingSolver(Solver):
         while not all(exp_nodes == [] for exp_nodes in explorable_nodes):
 
             # Tokenize and pad potential next nodes candidates
+            input_ids_list = []
+            position_ids_list = []
+            attention_mask_list = []
             for nodes in explorable_nodes:
                 tokenized_nodes = [n.tokenized(token_mapping=self.token_mapping) for n in nodes[:self.sample_batch_size]]
                 print(f"Tokenized nodes: {tokenized_nodes}")
