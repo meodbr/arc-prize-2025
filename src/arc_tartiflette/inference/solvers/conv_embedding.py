@@ -163,8 +163,6 @@ class ConvEmbeddingSolver(Solver):
             print(g)
         for i, g in enumerate(arc_grids):
             g.assign_value(g.nodes[0][0], -1)
-            print(f"Grid {g.name} after assigning wall at (0,0):")
-            print(f"Explorable nodes after assigning wall at (0,0) for grid {i}: {g.get_explorable_nodes()}")
 
         # Prompt inference
         logits, cache = self.model(
@@ -181,7 +179,7 @@ class ConvEmbeddingSolver(Solver):
 
             # Tokenize and pad potential next nodes candidates
             for nodes in explorable_nodes:
-                tokenized_nodes = [n.tokenized(generation=True) for n in nodes[:self.sample_batch_size]]
+                tokenized_nodes = [n.tokenized(token_mapping=self.token_mapping) for n in nodes[:self.sample_batch_size]]
                 print(f"Tokenized nodes: {tokenized_nodes}")
 
                 input_ids_pad = [self.tokenizer.pad_token_id]*8
@@ -239,6 +237,8 @@ class ConvEmbeddingSolver(Solver):
             explorable_nodes = [g.get_explorable_nodes() for g in arc_grids]
             for nodes in explorable_nodes:
                 random.shuffle(nodes)
+            for i, nodes in enumerate(explorable_nodes):
+                print(f"Explorable nodes for grid {i}: {[n.grid_position for n in nodes]}")
 
         # Extract solutions
         attempts_list = []

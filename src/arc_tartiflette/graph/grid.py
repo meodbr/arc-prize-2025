@@ -13,19 +13,15 @@ class Node:
         x, y = self.grid_position
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)]  # left, right, up, down, diagonals
         grid = self.parent
-        print(f"Getting neighbors for node at position {self.grid_position} with value {self.value}")
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
-            print(f"  Checking neighbor at position {nx}, {ny}, value: ", end="")
             if 0 <= nx < grid.width and 0 <= ny < grid.height:
                 neighbor = grid.nodes[ny][nx]
-                print(f"{neighbor.value}")
                 if neighbor.value != -3:
                     neighbors.append(neighbor)
                 else:
                     neighbors.append(None)
             else:
-                print("Out of bounds")
                 neighbors.append(None)
         return neighbors
     
@@ -98,15 +94,7 @@ class Grid:
 
         # Update explorable nodes
         for neighbor in node.get_unvisited_neighbors():
-            print("Checking neighbor for explorable:", end=" ")
             if neighbor:
-                print(neighbor.grid_position, neighbor.value)
-                print("  Explorable before:", neighbor.explorable)
                 if not neighbor.explorable:
-                    print("  Marking as explorable")
                     neighbor.explorable = True
                     self.explorable_nodes.append(neighbor)
-                else:
-                    print("  Already explorable")
-            else:
-                print("None neighbor")
