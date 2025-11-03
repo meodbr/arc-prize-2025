@@ -85,7 +85,7 @@ class ConvEmbeddingSolver(Solver):
         ).view(*probs.shape[:2])  # [B, C]
 
         # (4) Get its logit value
-        candidate_selected_logit = torch.gather(logits, dim=-1, index=candidate_selected_token_id)
+        candidate_selected_logit = torch.gather(logits, dim=-1, index=candidate_selected_token_id.unsqueeze(-1)).squeeze(-1)  # [B, C]
 
         # (5) Find the candidate with the highest selected logit
         selected_candidate_idx = candidate_selected_logit.argmax(dim=-1)
