@@ -23,8 +23,8 @@ class ConvEmbeddingSolver(Solver):
             tokenizer: AutoTokenizer=None,
             do_attempts: bool = True,
             sample_batch_size: int = 16,
+            temperature: float = 1.0,
         ):
-        self.do_attempts = do_attempts
         self.model = model
         self.tokenizer = tokenizer
         if model == None or tokenizer == None:
@@ -37,6 +37,7 @@ class ConvEmbeddingSolver(Solver):
         self.alternate_eos_token_id = self.tokenizer.eos_token_id
         self.sample_batch_size = sample_batch_size
         self.do_attempts = do_attempts
+        self.temperature = temperature
 
     def solve(self, task: dict, logs="") -> dict[str, np.ndarray]:
         return self.solve_batch([task], logs=logs)[0]
