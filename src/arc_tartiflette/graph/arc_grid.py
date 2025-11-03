@@ -63,13 +63,13 @@ class ArcGrid(Grid):
 
         # Don't prune if already pruned
         if w_x+1 < self.width and w_y+1 < self.height:
-            if self.grid[w_y+1][w_x+1].value == -3:
+            if self.nodes[w_y+1][w_x+1].value == -3:
                 return
 
 
         for y in range(w_y+1, self.height):
             for x in range(w_x+1, self.width):
-                node = self.grid[y][x]
+                node = self.nodes[y][x]
                 if node.value >= 0:
                     print(f"Warning: End wall placed {wall_pos}, and  found {node.value}-colored node further ({x}, {y})")
                 else:
@@ -77,7 +77,7 @@ class ArcGrid(Grid):
         
         pruned_explorable_nodes = []
         for node in self.explorable_nodes:
-            x, y = node.grid_position()
+            x, y = node.grid_position
             if x > w_x and y > w_y:
                 continue
             pruned_explorable_nodes.append(node)
@@ -97,7 +97,7 @@ class ArcGrid(Grid):
         self.mark_node_visited(node)
     
     def assign_value_at(self, x: int, y: int, value: int):
-        node = self.grid[y][x]
+        node = self.nodes[y][x]
         self.assign_value(node, value)
 
 
@@ -107,7 +107,7 @@ class ArcGrid(Grid):
         for y in range(1, self.height-1):
             row = []
             for x in range(1, self.width-1):
-                row.append(self.grid[y][x].value)
+                row.append(self.nodes[y][x].value)
             grid_2D.append(row)
 
         # Search for walls signaling a smaller grid
