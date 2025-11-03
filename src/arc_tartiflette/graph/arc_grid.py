@@ -27,16 +27,20 @@ def get_default_arc_token_mapping(tokenizer) -> dict[str, str]:
 
 
 class ArcGrid(Grid):
-    def __init__(self, list_grid: list[list[int]], token_mapping: dict):
+    def __init__(self, list_grid: list[list[int]], token_mapping: dict, set_walls: bool=True):
         # Surround with walls (value=-1)
         height = len(list_grid)
         width = len(list_grid[0]) if height > 0 else 0
 
 
-        new_grid_data = [[-1]*(width+2)]
-        for row in list_grid:
-            new_grid_data.append([-1]+row+[-1])
-        new_grid_data.append([-1]*(width+2))
+        new_grid_data = []
+        if set_walls:
+            new_grid_data = [[-1]*(width+2)]
+            for row in list_grid:
+                new_grid_data.append([-1]+row+[-1])
+            new_grid_data.append([-1]*(width+2))
+        else:
+            new_grid_data = list_grid
     
         super().__init__(new_grid_data)
         self.token_mapping = token_mapping
@@ -45,9 +49,9 @@ class ArcGrid(Grid):
     @classmethod
     def for_generation(cls, token_mapping):
         max_shape = MAX_ARC_GRID_SHAPE
-        list_grid = [[-2]*max_shape[0]]*max_shape[1]
+        list_grid = [[-2]*(max_shape[0] + 2)] * (max_shape[1] + 2)
         print(f"list_grid for generation: {list_grid}")
-        obj = cls(list_grid, token_mapping)
+        obj = cls(list_grid, token_mapping, set_walls=False)
         obj.generated = True
         return obj
     
