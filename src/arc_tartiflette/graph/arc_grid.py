@@ -92,6 +92,52 @@ class ArcGrid(Grid):
         self.mark_node_visited(node)
 
 
+    def extract_2D_grid(self) -> list[list[int]]:
+        # Get list of values without walls
+        grid_2D = []
+        for y in range(1, self.height-1):
+            row = []
+            for x in range(1, self.width-1):
+                row.append(self.grid[y][x].value)
+            grid_2D.append(row)
+
+        # Search for walls signaling a smaller grid
+        for y in range(len(grid_2D)):
+            x = 1
+            if grid_2D[y][x] == -1:
+                grid_2D = grid_2D[:y]
+                break
+        for x in range(len(grid_2D[0])):
+            y = 1
+            if grid_2D[y][x] == -1:
+                grid_2D = [row[:x] for row in grid_2D]
+                break
+        
+        # Validate values
+        for row in grid_2D:
+            for val in row:
+                if val < 0 or val > 9:
+                    print(f"Warning: extracted grid has invalid value {val}")
+                    val = 0
+
+        return grid_2D
+
+
+    def __str__(self):
+        grid_str = ""
+        for row in self.nodes:
+            row_str = ""
+            for node in row:
+                if node.value == -1:
+                    row_str += "W"
+                elif node.value == -2:
+                    row_str += "."
+                elif node.value == -3:
+                    row_str += "X"
+                else:
+                    row_str += f"{node.value}"
+            grid_str += row_str + "\n"
+        return grid_str
 
 
     def random_exploration(self):
