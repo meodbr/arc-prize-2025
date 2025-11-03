@@ -2,6 +2,7 @@ from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_u
 from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding, MistralModel, MistralForCausalLM
 from transformers import PreTrainedTokenizerFast, AutoTokenizer
 from transformers.data.data_collator import DataCollatorMixin
+from datasets import DatasetDict
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,7 +10,9 @@ import torch.nn.functional as F
 
 from arc_tartiflette.model_tools.custom_pe import CustomRotaryEmbedding2D, CustomCompletionMaskDataCollator
 from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
+from arc_tartiflette.model_tools.tokenize_functions import make_completion_mask
 from arc_tartiflette.graph.arc_grid import get_default_arc_token_mapping, ArcGrid
+from arc_tartiflette.config.settings import ENV_VARS
 
 
 class CustomConvEmbedding(nn.Embedding):
@@ -158,38 +161,53 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast):
         "labels": torch.cat([t["labels"] for t in tokenized], dim=1),
     }
 
+def tokenize_row_conv(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding="max_length", truncation=True):
+    """
+    Tokenizes a batch of tasks with 2D positional encoding.
+    """
 
-# BASE CLASS (kept here to have an example)
+    task = ds_row["task"]
 
-# class MistralRotaryEmbedding(nn.Module):
-#     def __init__(self, config: MistralConfig, device=None):
-#         super().__init__()
-#         # BC: "rope_type" was originally "type"
-#         if hasattr(config, "rope_scaling") and isinstance(config.rope_scaling, dict):
-#             self.rope_type = config.rope_scaling.get("rope_type", config.rope_scaling.get("type"))
-#         else:
-#             self.rope_type = "default"
-#         self.max_seq_len_cached = config.max_position_embeddings
-#         self.original_max_seq_len = config.max_position_embeddings
+    tokenized = tokenize_conv_task(task, tokenizer)
 
-#         self.config = config
-#         self.rope_init_fn = ROPE_INIT_FUNCTIONS[self.rope_type]
+    if truncation and len(tokenized["input_ids"]) > max_length:
+        tokenized["input_ids"] = tokenized["input_ids"][:max_length]
+        tokenized["position_ids"] = tokenized["position_ids"][:max_length]
+        tokenized["labels"] = tokenized["labels"][:max_length]
+    elif padding == "max_length" and len(tokenized["input_ids"]) < max_length:
+        pad_length = max_length - len(tokenized["input_ids"])
+        tokenized["input_ids"].extend([[tokenizer.pad_token_id]*8] * pad_length)
+        tokenized["position_ids"].extend([[0,0]] * pad_length)
+        tokenized["labels"].extend([-100] * pad_length)
 
-#         inv_freq, self.attention_scaling = self.rope_init_fn(self.config, device)
-#         self.register_buffer("inv_freq", inv_freq, persistent=False)
-#         self.original_inv_freq = self.inv_freq
+    attention_mask = [1 if id != -100 else 0 for id in tokenized["labels"]]
 
-#     @torch.no_grad()
-#     @dynamic_rope_update  # power user: used with advanced RoPE types (e.g. dynamic rope)
-#     def forward(self, x, position_ids):
-#         inv_freq_expanded = self.inv_freq[None, :, None].float().expand(position_ids.shape[0], -1, 1).to(x.device)
-#         position_ids_expanded = position_ids[:, None, :].float()
+    ds_row["input_ids"] = torch.tensor(tokenized["input_ids"]).long()
+    ds_row["position_ids"] = torch.tensor(tokenized["position_ids"]).long()
+    ds_row["attention_mask"] = torch.tensor(attention_mask).long()
+    ds_row["labels"] = torch.tensor(tokenized["labels"]).long()
+    return ds_row
 
-#         device_type = x.device.type if isinstance(x.device.type, str) and x.device.type != "mps" else "cpu"
-#         with torch.autocast(device_type=device_type, enabled=False):  # Force float32
-#             freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(1, 2)
-#             emb = torch.cat((freqs, freqs), dim=-1)
-#             cos = emb.cos() * self.attention_scaling
-#             sin = emb.sin() * self.attention_scaling
 
-#         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
+def tokenize_dataset_conv(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
+    print("Tokenizing dataset with Conv tokenizer...")
+    max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
+    padding = "max_length"
+    truncation = True
+
+    fmt = get_architects_prompt_format(tokenizer)
+
+    def tokenize_function(example):
+        tokenized = example
+        tokenized["completion_mask"] = make_completion_mask(
+            tokenized["labels"], 
+            tokenized["attention_mask"], 
+            special_token_id=tokenizer("I")["input_ids"][0],
+            n=1,
+        )
+        return tokenized
+    tokenized_datasets = dataset_dict.map(tokenize_row_conv, fn_kwargs={"max_length": max_length, "tokenizer": tokenizer, "padding": padding, "truncation": truncation}, batched=False)
+    tokenized_datasets = tokenized_datasets.map(tokenize_function, batched=True)
+    print("---- Dataset tokenized with Conv tokenizer. ----")
+    print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
+    return tokenized_datasets

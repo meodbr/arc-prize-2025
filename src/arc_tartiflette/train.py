@@ -15,6 +15,7 @@ from arc_tartiflette.training.train_trl import train_trl
 from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.inference.solvers.lm import LMSolver
 from arc_tartiflette.model_tools.custom_pe import CustomMistralModel2DPE
+from arc_tartiflette.model_tools.conv_embeddings import CustomMistralModelConvEmbedding, tokenize_dataset_conv
 
 
 def get_model(model_name: str, untie_lm_head: bool=None):
@@ -52,6 +53,9 @@ def get_model(model_name: str, untie_lm_head: bool=None):
         case "2DPE":
             print("Using Custom Mistral Model with 2D PE...")
             model_class = CustomMistralModel2DPE
+        case "conv":
+            print("Using Custom Mistral Model with Conv Embeddings...")
+            model_class = CustomMistralModelConvEmbedding
         case _:
             model_class = AutoModelForCausalLM
 
