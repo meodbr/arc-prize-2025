@@ -163,6 +163,7 @@ class ConvEmbeddingSolver(Solver):
             print(g)
         for i, g in enumerate(arc_grids):
             g.assign_value(g.nodes[0][0], -1)
+            print(f"Explorable nodes after assigning wall at (0,0) for grid {i}: {g.get_explorable_nodes()}")
 
         # Prompt inference
         logits, cache = self.model(
