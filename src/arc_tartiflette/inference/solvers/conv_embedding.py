@@ -156,7 +156,7 @@ class ConvEmbeddingSolver(Solver):
         attention_mask = torch.cat(attention_mask_list, dim=0).to(self.model.device)
 
         # Explore grids
-        arc_grids = [ArcGrid.for_generation(self.token_mapping)]
+        arc_grids = [ArcGrid.for_generation(self.token_mapping) for _ in range(batch_size)]
         start_nodes = [g.get_start_node() for g in arc_grids]
         for i, g in enumerate(arc_grids):
             g.assign_value(start_nodes[i], -1)
