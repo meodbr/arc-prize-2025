@@ -91,7 +91,7 @@ class ConvEmbeddingSolver(Solver):
         selected_candidate_idx = candidate_selected_logit.argmax(dim=-1)
 
         # (6) Get the token id for the selected candidate
-        selected_token_id = torch.gather(candidate_selected_token_id, dim=-1, index=selected_candidate_idx)
+        selected_token_id = torch.gather(candidate_selected_token_id, dim=-1, index=selected_candidate_idx.unsqueeze(-1)).squeeze(-1)
 
         return selected_candidate_idx, selected_token_id
     
