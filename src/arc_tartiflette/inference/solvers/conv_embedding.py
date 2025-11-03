@@ -224,7 +224,8 @@ class ConvEmbeddingSolver(Solver):
             print(f"Input IDs shape: {input_ids.shape}, Position IDs shape: {position_ids.shape}, Attention mask shape: {attention_mask.shape}")
 
             # Infer model
-            logits, new_cache = self.model(
+            old_cache = cache.clone()
+            logits, cache = self.model(
                 input_ids=input_ids,
                 position_ids=position_ids,
                 past_key_values=cache,
@@ -235,7 +236,7 @@ class ConvEmbeddingSolver(Solver):
             candidate_idx, token_id = self.select_next_token(logits, self.temperature)
 
             # Keep cache only for that candidate
-            cache = self.append_selected_cache(old_cache=cache, new_cache=new_cache, candidate_idx=candidate_idx)
+            cache = self.append_selected_cache(old_cache=old_cache, new_cache=cache, candidate_idx=candidate_idx)
 
             # Update grids
             for i, g in enumerate(arc_grids):
