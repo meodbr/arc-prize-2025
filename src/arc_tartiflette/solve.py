@@ -3,6 +3,8 @@ from transformers import AutoModel, AutoTokenizer
 
 from arc_tartiflette.inference.solvers.naive_copy import NaiveCopySolver
 from arc_tartiflette.inference.solvers.lm import LMSolver
+from arc_tartiflette.inference.solvers.conv_embedding import ConvEmbeddingSolver
+from arc_tartiflette.inference.solver import Solver
 from arc_tartiflette.utils import load, plot
 
 def solve_all_kaggle(
@@ -16,6 +18,7 @@ def solve_all_kaggle(
         batch_size: int=None,
         model: AutoModel=None,
         tokenizer: AutoTokenizer=None,
+        solver: Solver=None,
     ) -> None:
     """
     Main function to solve ARC challenges with a prepared solution.
@@ -28,12 +31,13 @@ def solve_all_kaggle(
     os.makedirs(save_dir, exist_ok=True)
     os.makedirs(figures_dir, exist_ok=True)
 
-    solver = LMSolver(
-        model_name=model_name,
-        model_revision=model_revision,
-        model=model,
-        tokenizer=tokenizer,
-    )
+    if solver is None:
+        solver = LMSolver(
+            model_name=model_name,
+            model_revision=model_revision,
+            model=model,
+            tokenizer=tokenizer,
+        )
     datasets_dict_full = load.load_challenges_kaggle_format(input_dir)
 
     if only_train:
@@ -110,10 +114,38 @@ if __name__ == "__main__":
     # model_name = "HuggingFaceTB/SmolLM2-135M"
     # model_name = "meo-des/smollm2_arc_main_base_m"
     # model_name = "meo-des/nemo_arc_main_base_1s10e_m"
-    model_name = "meo-des/smollm2_arc_main_base_4096_2e_m"
+    model_name = "meo-des/nemo_arc_main_base_1s5e_m"
     model_revision = None
     only_train = True
     batch_size = 1
+
+    solver = ConvEmbeddingSolver(
+        model_name=model_name,
+        model_revision=model_revision,
+        do_attempts=True,
+        sample_batch_size=8,
+    )
+
+
+    task_example = {
+        "train": [
+            {
+                "input": [[1,0],[0,1]],
+                "output": [[0,1],[1,0]],
+            }
+        ],        "test": [
+            {
+                "input": [[0,1,0],[1,0,1],[0,1,0]],
+                "output": [[1,0,1],[0,1,0],[1,0,1]],
+            }
+        ],
+    }
+    print("Solving example task with ConvEmbeddingSolver...")
+    attempts = solver.solve_batch([task_example])
+    print("Attempts:")
+    for attempt in attempts:
+        print(attempt)
+
 
     frac = 0.001  # Fraction of dataset to use for testin
     solve_all_kaggle(
@@ -124,4 +156,23 @@ if __name__ == "__main__":
         frac=frac,
         only_train=only_train,
         batch_size=batch_size,
+        solver=solver,
     )
+
+
+# from datasets import load_dataset
+# from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# from src.arc_tartiflette.solve import solve_hf_dataset
+
+# solve_hf_ds = load_dataset("/kaggle/input/arc-main-fmt-aug", split="test").shuffle(seed=43).select(range(60,80))
+# model = AutoModelForCausalLM.from_pretrained("/kaggle/working/models/nemo_arc_main_base_ttt_1s2e_m")
+# tokenizer = AutoTokenizer.from_pretrained("/kaggle/working/models/nemo_arc_main_base_ttt_1s2e_m")
+# solve_hf_dataset(
+#     solve_hf_ds,
+#     model,
+#     tokenizer,
+#     batch_size=4,
+#     frac=1.,
+#     dataset_name="hf_dataset",
+# )

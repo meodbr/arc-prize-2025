@@ -105,9 +105,12 @@ class Solver:
         card.score = card.tasks_solved / card.num_tasks if card.num_tasks > 0 else 0.
 
     
-    def solve_hf_dataset(self, hf_datastet, dataset_name="dataset", batch_size: int=None) -> SolverRunCard:
+    def solve_hf_dataset(self, hf_datastet, dataset_name="dataset", batch_size: int=None, return_dict=False) -> SolverRunCard:
         data = load.transformers_dataset_to_dict(hf_datastet)
-        return self.solve_dataset(data, dataset_name, batch_size)
+        if return_dict:
+            return self.solve_dataset(data, dataset_name, batch_size), data
+        else:
+            return self.solve_dataset(data, dataset_name, batch_size)
 
 
     def solve_dataset(self, dataset: dict[str, Any], dataset_name="dataset", batch_size: int=None) -> SolverRunCard:

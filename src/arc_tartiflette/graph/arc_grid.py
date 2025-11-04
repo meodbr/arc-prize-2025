@@ -27,26 +27,33 @@ def get_default_arc_token_mapping(tokenizer) -> dict[str, str]:
 
 
 class ArcGrid(Grid):
-    def __init__(self, list_grid: list[list[int]], token_mapping: dict):
+    def __init__(self, list_grid: list[list[int]], token_mapping: dict, set_walls: bool=True, name="grid"):
         # Surround with walls (value=-1)
         height = len(list_grid)
         width = len(list_grid[0]) if height > 0 else 0
 
 
-        new_grid_data = [[-1]*(width+2)]
-        for row in list_grid:
-            new_grid_data.append([-1]+row+[-1])
-        new_grid_data.append([-1]*(width+2))
+        new_grid_data = []
+        if set_walls:
+            new_grid_data = [[-1]*(width+2)]
+            for row in list_grid:
+                new_grid_data.append([-1]+row+[-1])
+            new_grid_data.append([-1]*(width+2))
+        else:
+            new_grid_data = list_grid
     
         super().__init__(new_grid_data)
         self.token_mapping = token_mapping
         self.generated = False
+        self.name = name
     
+
     @classmethod
-    def for_generation(cls, token_mapping):
+    def for_generation(cls, token_mapping, name="grid_gen"):
         max_shape = MAX_ARC_GRID_SHAPE
-        list_grid = [[-2]*max_shape[0]]*max_shape[1]
-        obj = cls(list_grid, token_mapping)
+        list_grid = [[-2]*(max_shape[0] + 2)] * (max_shape[1] + 2)
+        print(f"list_grid for generation: {list_grid}")
+        obj = cls(list_grid, token_mapping, set_walls=False, name=name)
         obj.generated = True
         return obj
     
@@ -56,13 +63,13 @@ class ArcGrid(Grid):
 
         # Don't prune if already pruned
         if w_x+1 < self.width and w_y+1 < self.height:
-            if self.grid[w_y+1][w_x+1].value == -3:
+            if self.nodes[w_y+1][w_x+1].value == -3:
                 return
 
 
         for y in range(w_y+1, self.height):
             for x in range(w_x+1, self.width):
-                node = self.grid[y][x]
+                node = self.nodes[y][x]
                 if node.value >= 0:
                     print(f"Warning: End wall placed {wall_pos}, and  found {node.value}-colored node further ({x}, {y})")
                 else:
@@ -70,13 +77,11 @@ class ArcGrid(Grid):
         
         pruned_explorable_nodes = []
         for node in self.explorable_nodes:
-            x, y = node.grid_position()
+            x, y = node.grid_position
             if x > w_x and y > w_y:
                 continue
             pruned_explorable_nodes.append(node)
         self.explorable_nodes = pruned_explorable_nodes
-
-        pass
     
 
     def assign_value(self, node: Node, value):
@@ -85,13 +90,63 @@ class ArcGrid(Grid):
         if x > 0 and y > 0 and value == -1: # If we are assigning a non trivial wall
             self._prune_out_of_bounds([x, y])
         
-        if node.value != -2:
+        if node.value != -2 and not (x == 0 and y == 0):
             print(f"Warning, assigning {value} to node {node.grid_position}, but overriding previous value ({node.value})")
         
         node.value = value
         self.mark_node_visited(node)
+    
+    def assign_value_at(self, x: int, y: int, value: int):
+        node = self.nodes[y][x]
+        self.assign_value(node, value)
 
 
+    def extract_2D_grid(self) -> list[list[int]]:
+        # Get list of values without walls
+        grid_2D = []
+        for y in range(1, self.height-1):
+            row = []
+            for x in range(1, self.width-1):
+                row.append(self.nodes[y][x].value)
+            grid_2D.append(row)
+
+        # Search for walls signaling a smaller grid
+        for y in range(len(grid_2D)):
+            x = 1
+            if grid_2D[y][x] == -1:
+                grid_2D = grid_2D[:y]
+                break
+        for x in range(len(grid_2D[0])):
+            y = 1
+            if grid_2D[y][x] == -1:
+                grid_2D = [row[:x] for row in grid_2D]
+                break
+        
+        # Validate values
+        for row in grid_2D:
+            for val in row:
+                if val < 0 or val > 9:
+                    print(f"Warning: extracted grid has invalid value {val}")
+                    val = 0
+
+        return grid_2D
+
+
+    def __str__(self):
+        grid_str = ""
+        for row in self.nodes:
+            row_str = ""
+            for node in row:
+                if node.value == -1:
+                    row_str += "W"
+                elif node.value == -2:
+                    row_str += "."
+                elif node.value == -3:
+                    row_str += "X"
+                else:
+                    row_str += f"{node.value}"
+            grid_str += row_str + "\n"
+        return grid_str
 
 
     def random_exploration(self):
@@ -127,7 +182,7 @@ class ArcGrid(Grid):
 
 from transformers import AutoTokenizer
 if __name__ == "__main__":
-    tokenizer = AutoTokenizer.from_pretrained("meo-des/nemo_arc_main_base_1s10e_m")
+    tokenizer = AutoTokenizer.from_pretrained("meo-des/nemo_arc_main_base_1s5e_m")
     DEFAULT_ARC_TOKEN_MAPPING = get_default_arc_token_mapping(tokenizer)
     print(f"Default ARC token mapping:", DEFAULT_ARC_TOKEN_MAPPING)
     grid_data = [
