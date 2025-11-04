@@ -14,6 +14,7 @@ from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
 from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.inference.solvers.lm import LMSolver
+from arc_tartiflette.inference.solvers.conv_embedding import ConvEmbeddingSolver
 from arc_tartiflette.model_tools.custom_pe import CustomMistralModel2DPE
 from arc_tartiflette.model_tools.conv_embeddings import CustomMistralModelConvEmbedding, tokenize_dataset_conv
 
@@ -201,10 +202,16 @@ def test_model_on_dataset(model, tokenizer, dataset_dict, splits: list=None):
     print("---- TEST SOLVE ----")
     num_solve_tests = ENV_VARS["NUM_SOLVE_TESTS"]
     batch_size = ENV_VARS["SOLVE_BATCH_SIZE"]
+
     solver = LMSolver(
         model=model,
         tokenizer=tokenizer,
     )
+    if ENV_VARS["MODEL_TYPE"] == "conv":
+        solver = ConvEmbeddingSolver(
+            model=model,
+            tokenizer=tokenizer,
+        )
 
     if splits is None:
         splits = ["train", "test"]
