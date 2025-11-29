@@ -82,8 +82,10 @@ class ArcGrid(Grid):
             if x > w_x and y > w_y:
                 continue
             if w_x == 1 and y > w_y:
+                node.value = -3
                 continue
             if w_y == 1 and x > w_x:
+                node.value = -3
                 continue
             pruned_explorable_nodes.append(node)
         self.explorable_nodes = pruned_explorable_nodes
