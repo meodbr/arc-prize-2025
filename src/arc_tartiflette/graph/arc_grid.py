@@ -76,9 +76,14 @@ class ArcGrid(Grid):
                     node.value = -3
         
         pruned_explorable_nodes = []
+
         for node in self.explorable_nodes:
             x, y = node.grid_position
             if x > w_x and y > w_y:
+                continue
+            if w_x == 1 and y > w_y:
+                continue
+            if w_y == 1 and x > w_x:
                 continue
             pruned_explorable_nodes.append(node)
         self.explorable_nodes = pruned_explorable_nodes
@@ -116,7 +121,8 @@ class ArcGrid(Grid):
             if grid_2D[y][x] == -1:
                 grid_2D = grid_2D[:y]
                 break
-        for x in range(len(grid_2D[0])):
+        width = len(grid_2D[0]) if len(grid_2D) > 0 else 0
+        for x in range(width):
             y = 1
             if grid_2D[y][x] == -1:
                 grid_2D = [row[:x] for row in grid_2D]
