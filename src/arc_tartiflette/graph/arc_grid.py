@@ -67,8 +67,10 @@ class ArcGrid(Grid):
                 return
 
 
-        for y in range(w_y+1, self.height):
-            for x in range(w_x+1, self.width):
+        start_prune_x = w_x + 1 if w_y != 1 else 0
+        start_prune_y = w_y + 1 if w_x != 1 else 0
+        for y in range(start_prune_x, self.height):
+            for x in range(start_prune_x, self.width):
                 node = self.nodes[y][x]
                 if node.value >= 0:
                     print(f"Warning: End wall placed {wall_pos}, and  found {node.value}-colored node further ({x}, {y})")

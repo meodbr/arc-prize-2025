@@ -53,7 +53,6 @@ def print_quantization_info(
 
     non_quantized_params = total_params - quantized_params
 
-       # Estimate VRAM (rough)
     param_bytes = {
         "float32": 4,
         "float16": 2,
