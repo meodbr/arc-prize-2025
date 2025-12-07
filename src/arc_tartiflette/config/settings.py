@@ -7,10 +7,15 @@ from arc_tartiflette.config import defaults
 
 
 def convert_env_var(value, var_type):
+    if value == "None":
+        return None
     if var_type == bool:
         return value.lower() in ("true", "1", "yes")
     elif var_type == list[str]:
-        return value.split(",")
+        out = value.split(",")
+        if out == ['']:
+            return []
+        return out
     else:
         return var_type(value)
 

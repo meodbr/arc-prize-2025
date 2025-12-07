@@ -26,6 +26,7 @@ from arc_tartiflette.config.settings import ENV_VARS, get_logging_config
 from arc_tartiflette.inference.solvers.lm import LMSolver
 from arc_tartiflette.inference.solvers.conv_embedding import ConvEmbeddingSolver
 from arc_tartiflette.model_tools.custom_pe import CustomMistralModel2DPE
+from arc_tartiflette.model import ModelBuilder
 from arc_tartiflette.model_tools.conv_embeddings import (
     CustomMistralModelConvEmbedding,
     tokenize_dataset_conv,
@@ -342,17 +343,24 @@ def train(
     # ---- DEVICE ----
     gpu_availability.print_gpu_availability()
 
-    # ---- MODEL ----
+    # ---- MODEL / TOKENIZER ----
     model_name = ENV_VARS["HF_BASE_MODEL"]
-    model = get_model(model_name, untie_lm_head=ENV_VARS["UNTIE_LM_HEAD"])
+    model, tokenizer = (
+        ModelBuilder()
+        .from_hf(model_name)
+        .set_custom_class(ENV_VARS["MODEL_TYPE"])
+        .with_quantization(ENV_VARS["QUANTIZE_MODEL"])
+        .with_lora(ENV_VARS["USE_LORA"], config="env")
+        .with_untied_lm_head(ENV_VARS["UNTIE_LM_HEAD"])
+        .shrink_tokenizer_vocab()
+        .build()
+    )
 
     # ---- DATASET ----
     dataset_id = f"{constants.HF_USER}/{ENV_VARS['HF_DATASET']}"
     dataset_dict = get_dataset(dataset_id)
 
     # ---- PREPROCESS ----
-    tokenizer = get_tokenizer(model_name)
-    shrink_vocab(model, tokenizer)
     if ENV_VARS["DO_AUG"]:
         dataset_dict = augment_dataset(dataset_dict, tokenizer)
     match ENV_VARS["MODEL_TYPE"]:
@@ -364,11 +372,6 @@ def train(
             tokenized_datasets = tokenize_dataset_conv(dataset_dict, tokenizer)
         case _:
             tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
-
-    # ---- PEFT ----
-    use_lora = ENV_VARS["USE_LORA"]
-    if use_lora:
-        model = setup_peft_lora(model)
 
     # ---- TRAIN ----
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False

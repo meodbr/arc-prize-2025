@@ -1,6 +1,6 @@
 import logging
 
-from peft import LoraConfig
+from peft import LoraConfig, TaskType
 
 from arc_tartiflette.config.settings import ENV_VARS
 
@@ -62,7 +62,7 @@ class LoraConfigFactory:
             lora_dropout=ENV_VARS["LORA_DROPOUT"],
             bias="none",
             use_rslora=ENV_VARS["USE_RSLORA"],
-            task_type=ENV_VARS["LORA_TASK_TYPE"],
+            task_type=TaskType.CAUSAL_LM,
             modules_to_save=(
                 ENV_VARS["LORA_MODULES_TO_SAVE"]
                 if len(ENV_VARS["LORA_MODULES_TO_SAVE"]) > 0

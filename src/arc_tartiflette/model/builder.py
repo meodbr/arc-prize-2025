@@ -15,7 +15,7 @@ from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.model_tools.conv_embeddings import CustomMistralModelConvEmbedding
 from arc_tartiflette.model_tools.custom_pe import CustomMistralModel2DPE
 from arc_tartiflette.utils import utils
-from arc_tartiflette.model_tools import quantization_info
+from arc_tartiflette.model_tools.quantization import print_quantization_info
 from arc_tartiflette.model_tools import tokenizer as tokenizer_tools
 from arc_tartiflette.training import LoraConfigFactory
 
@@ -108,7 +108,6 @@ class ModelBuilder:
         return None
 
     def get_model_class(self) -> Any:
-        # Warning if mistral not found in name
         matchings = ["mistral", "nemo"]
         if (
             not any(m in self.model_name_or_path.lower() for m in matchings)
@@ -150,7 +149,7 @@ class ModelBuilder:
         logger.info("Model has %.3fB parameters.", utils.count_parameters(model) / 1e9)
         logger.info(
             "Trainableable parameters: %.3fM",
-            model.get_num_trainable_params() / 1e6,
+            sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6,
         )
         logger.info("Model dtype: %s", next(model.parameters()).dtype)
         logger.debug("Model config: %s", model.config)
@@ -199,6 +198,7 @@ class ModelBuilder:
         if self.lora_config is None:
             raise ValueError("LoRA config is not set. Cannot build PEFT model.")
         logger.info("Applying PEFT LoRA to the model...")
+        logger.debug("LoRA config: %s", self.lora_config)
         model = get_peft_model(model, self.lora_config)
         model.print_trainable_parameters()
         logger.info(
