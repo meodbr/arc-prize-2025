@@ -6,7 +6,7 @@ from datasets import DatasetDict
 import numpy as np
 
 from arc_tartiflette.config.settings import ENV_VARS
-from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
+from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
 
 logger = logging.getLogger(__name__)
 

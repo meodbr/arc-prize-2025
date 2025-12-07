@@ -4,8 +4,8 @@ from trl import SFTConfig, SFTTrainer
 from datasets import Dataset, DatasetDict
 import torch
 
-from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
-from arc_tartiflette.model_tools.custom_pe import CustomCompletionMaskDataCollator
+from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
+from arc_tartiflette.model.custom_pe import CustomCompletionMaskDataCollator
 from arc_tartiflette.config.settings import ENV_VARS
 
 logger = logging.getLogger(__name__)
@@ -17,12 +17,14 @@ def train_trl(
         output_model="default_output_model",
         push: bool=False,
         output_path: str=None,
+        use_custom_data_collator: bool | None = None,
     ):
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
 
     fmt = get_architects_prompt_format(tokenizer)
 
-    use_custom_data_collator = ENV_VARS["MODEL_TYPE"] in ["2DPE", "conv"]
+    if use_custom_data_collator is None: 
+        use_custom_data_collator = ENV_VARS["MODEL_TYPE"] in ["2DPE", "conv"]
 
     if output_path is None:
         output_path = f"./data/models/{output_model}"

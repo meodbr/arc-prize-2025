@@ -14,12 +14,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from arc_tartiflette.model_tools.custom_pe import (
+from arc_tartiflette.model.custom_pe import (
     CustomRotaryEmbedding2D,
     CustomCompletionMaskDataCollator,
 )
-from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
-from arc_tartiflette.model_tools.tokenize_functions import make_completion_mask
+from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
+from arc_tartiflette.model.tokenize_functions import make_completion_mask
 from arc_tartiflette.graph.arc_grid import get_default_arc_token_mapping, ArcGrid
 from arc_tartiflette.config.settings import ENV_VARS
 

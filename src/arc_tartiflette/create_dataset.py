@@ -4,8 +4,8 @@ from transformers import AutoTokenizer
 import os
 
 from arc_tartiflette.utils import load, utils, constants
-import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
-from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base
+from arc_tartiflette.model import tokenizer_tools
+from arc_tartiflette.model.tokenize_functions import tokenize_dataset_base
 from arc_tartiflette.train import shrink_vocab
 
 def kaggle_flatten_and_push(input_dir):

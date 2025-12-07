@@ -12,11 +12,11 @@ from transformers import (
 )
 
 from arc_tartiflette.config.settings import ENV_VARS
-from arc_tartiflette.model_tools.conv_embeddings import CustomMistralModelConvEmbedding
-from arc_tartiflette.model_tools.custom_pe import CustomMistralModel2DPE
+from arc_tartiflette.model.conv_embeddings import CustomMistralModelConvEmbedding
+from arc_tartiflette.model.custom_pe import CustomMistralModel2DPE
 from arc_tartiflette.utils import utils
-from arc_tartiflette.model_tools.quantization import print_quantization_info
-from arc_tartiflette.model_tools import tokenizer as tokenizer_tools
+from arc_tartiflette.model.quantization import print_quantization_info
+from arc_tartiflette.model import tokenizer_tools as tokenizer_tools
 from arc_tartiflette.training import LoraConfigFactory
 
 logger = logging.getLogger(__name__)
@@ -213,6 +213,16 @@ class ModelBuilder:
             self.lora_config.use_rslora,
         )
         return model
+    
+    def build_tokenizer(self) -> PreTrainedTokenizerBase:
+        tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=self.model_name_or_path)
+        logger.info("Tokenizer fast? %s", tokenizer.is_fast)
+        tokenizer.pad_token = (
+            tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+        )
+        logger.info("Tokenizer loaded. Vocab size: %d", len(tokenizer))
+        logger.info("Tokenizer class: %s", type(tokenizer))
+        return tokenizer
 
     def build(self) -> Tuple[PreTrainedModel, PreTrainedTokenizerBase]:
         logger.info("Building model from %s...", self.model_name_or_path)
@@ -233,7 +243,7 @@ class ModelBuilder:
 
         self._log_model_info(model)
 
-        tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
+        tokenizer = self.build_tokenizer()
 
         if self.shrink_vocab:
             model, tokenizer = self.build_shrinked_vocab(model, tokenizer)

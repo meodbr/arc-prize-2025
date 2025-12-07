@@ -7,9 +7,9 @@ from datasets import Dataset, DatasetDict, load_dataset
 import huggingface_hub as hf
 import torch
 
-import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
-from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, frac_dataset_dict, tokenize_dataset_2DPE
-from arc_tartiflette.model_tools.conv_embeddings import tokenize_dataset_conv
+from arc_tartiflette.model import tokenizer_tools
+from arc_tartiflette.model.tokenize_functions import tokenize_dataset_base, frac_dataset_dict, tokenize_dataset_2DPE
+from arc_tartiflette.model.conv_embeddings import tokenize_dataset_conv
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl

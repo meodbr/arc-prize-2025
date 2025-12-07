@@ -9,8 +9,8 @@ import random
 
 from arc_tartiflette.inference.solver import Solver
 from arc_tartiflette.utils import load, constants
-from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
-from arc_tartiflette.model_tools.conv_embeddings import (
+from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
+from arc_tartiflette.model.conv_embeddings import (
     tokenize_conv_task,
     CustomMistralModelConvEmbedding,
 )

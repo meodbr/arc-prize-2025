@@ -17,7 +17,7 @@ from transformers import (
     BitsAndBytesConfig,
 )
 
-from arc_tartiflette.model import tokenizer_tools as tokenizer_tools
+from arc_tartiflette.model import tokenizer_tools
 from arc_tartiflette.model.quantization import print_quantization_info
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
 from arc_tartiflette.training.train_transformers import train_transformers
@@ -321,7 +321,7 @@ def test_model_on_dataset(model, tokenizer, dataset_dict, splits: list = None):
 def test_model_generation(model, tokenizer):
     logger.info("Testing model generation...")
     try:
-        pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+        pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, torch_dtype=torch.float16)
 
         # Test prompt
         fmt = tokenizer_tools.get_architects_prompt_format(tokenizer)
@@ -344,14 +344,14 @@ def train(
     gpu_availability.print_gpu_availability()
 
     # ---- MODEL / TOKENIZER ----
-    model_name = ENV_VARS["HF_BASE_MODEL"]
+    model_name = "HuggingFaceTB/SmolLM2-135M"
     model, tokenizer = (
         ModelBuilder()
         .from_hf(model_name)
-        .set_custom_class(ENV_VARS["MODEL_TYPE"])
-        .with_quantization(ENV_VARS["QUANTIZE_MODEL"])
-        .with_lora(ENV_VARS["USE_LORA"], config="env")
-        .with_untied_lm_head(ENV_VARS["UNTIE_LM_HEAD"])
+        .set_custom_class("base")
+        .with_quantization(4)
+        .with_lora(use_lora=True, config="env")
+        .with_untied_lm_head()
         .shrink_tokenizer_vocab()
         .build()
     )
@@ -363,41 +363,18 @@ def train(
     # ---- PREPROCESS ----
     if ENV_VARS["DO_AUG"]:
         dataset_dict = augment_dataset(dataset_dict, tokenizer)
-    match ENV_VARS["MODEL_TYPE"]:
-        case "base":
-            tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
-        case "2DPE":
-            tokenized_datasets = tokenize_dataset_2DPE(dataset_dict, tokenizer)
-        case "conv":
-            tokenized_datasets = tokenize_dataset_conv(dataset_dict, tokenizer)
-        case _:
-            tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
-
+    tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
+    
     # ---- TRAIN ----
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
     print_before_training_info(model, tokenized_datasets, use_bf16)
-    match ENV_VARS["TRAIN_METHOD"]:
-        case "transformers":
-            train_transformers(
-                model,
-                tokenized_datasets,
-                tokenizer,
-                output_model=ENV_VARS["HF_OUTPUT_MODEL"],
-            )
-        case "trl":
-            train_trl(
-                model,
-                tokenized_datasets,
-                tokenizer,
-                output_model=ENV_VARS["HF_OUTPUT_MODEL"],
-            )
-        case _:
-            train_transformers(
-                model,
-                tokenized_datasets,
-                tokenizer,
-                output_model=ENV_VARS["HF_OUTPUT_MODEL"],
-            )
+    train_trl(
+        model,
+        tokenized_datasets,
+        tokenizer,
+        output_model=ENV_VARS["HF_OUTPUT_MODEL"],
+        use_custom_data_collator=False,
+    )
 
     # ---- PUSH ----
     if push:
