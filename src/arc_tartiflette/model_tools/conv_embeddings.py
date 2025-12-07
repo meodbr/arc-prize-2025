@@ -45,7 +45,7 @@ class CustomConvEmbedding(nn.Embedding):
         self.norm = nn.RMSNorm(embedding_dim, eps=eps)  # Same as MistralRMSNorm
         self.oob_token_id = 0  # TODO: Change to tokenizer oob token
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor) -> torch.Tensor: # pylint: disable=redefined-builtin
         """
         input: LongTensor of shape (batch_size, seq_len, num_subtokens)
         output: Tensor of shape (batch_size, seq_len, embedding_dim)
@@ -75,7 +75,7 @@ class CustomConvEmbedding(nn.Embedding):
         return normed
 
 
-class CustomMistralModelConvBase(MistralModel):
+class CustomMistralModelConvBase(MistralModel): # pylint: disable=abstract-method
     def __init__(self, config):
         super().__init__(config)
         self.rotary_emb = CustomRotaryEmbedding2D(config)
@@ -88,7 +88,7 @@ class CustomMistralModelConvBase(MistralModel):
         )
 
 
-class CustomMistralModelConvEmbedding(MistralForCausalLM):
+class CustomMistralModelConvEmbedding(MistralForCausalLM): # pylint: disable=abstract-method
     def __init__(self, config):
         super().__init__(config)
         self.model = CustomMistralModelConvBase(config)
@@ -164,7 +164,7 @@ def tokenize_conv_example(
         if grid == "input":
             tokenized.append(
                 tokenize_simple_char(
-                    id=fmt["input_beg_id"],
+                    tok_id=fmt["input_beg_id"],
                     tokenizer=tokenizer,
                     current_position=current_position,
                 )
@@ -172,7 +172,7 @@ def tokenize_conv_example(
         else:
             tokenized.append(
                 tokenize_simple_char(
-                    id=fmt["output_beg_id"],
+                    tok_id=fmt["output_beg_id"],
                     tokenizer=tokenizer,
                     current_position=current_position,
                 )
@@ -204,7 +204,7 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast, prompt=Fa
     # Task beg
     tokenized.append(
         tokenize_simple_char(
-            id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=(0, 0)
+            tok_id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=(0, 0)
         )
     )
     current_position = [current_position[0] + 1, current_position[1] + 1]

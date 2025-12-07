@@ -6,6 +6,8 @@
 *.egg-info/
 .venv/
 .python-version
+.log
+logs/
 dist
 
 # Other tools

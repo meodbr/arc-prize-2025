@@ -103,10 +103,6 @@ DEFAULT_ENV_VARS = {
         "value": 0.0,
         "type": float
     },
-    "LR": {
-        "value": 5e-5,
-        "type": float
-    },
     "EMBEDDING_LR": {
         "value": 5e-5,
         "type": float
