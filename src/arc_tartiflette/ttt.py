@@ -1,9 +1,11 @@
+import logging
+import os
+
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from peft import LoraConfig, TaskType, get_peft_model
-import torch
 from datasets import Dataset, DatasetDict, load_dataset
 import huggingface_hub as hf
-import os
+import torch
 
 import arc_tartiflette.model_tools.tokenizer as tokenizer_tools
 from arc_tartiflette.model_tools.tokenize_functions import tokenize_dataset_base, frac_dataset_dict, tokenize_dataset_2DPE
@@ -15,6 +17,7 @@ from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.inference.solvers.lm import LMSolver
 from arc_tartiflette.train import get_model, get_tokenizer, augment_dataset, print_before_training_info, setup_peft_lora, test_model_on_dataset, test_model_generation
 
+logger = logging.getLogger(__name__)
 
 def get_kaggle_dataset(kaggle_dir: str, split: str, submission_run: bool=True, eval_split: str="eval", num_eval: int=40) -> DatasetDict:
     dataset_dict = load.load_challenges_kaggle_format(kaggle_dir)
@@ -25,7 +28,7 @@ def get_kaggle_dataset(kaggle_dir: str, split: str, submission_run: bool=True, e
         "train": load.dict_to_transformers_dataset(dataset_dict[split], keep_tests=False),
         "eval": load.dict_to_transformers_dataset(dataset_dict[eval_split]).shuffle(seed=42).select(range(min(num_eval, len(dataset_dict[eval_split])))),
     })
-    print(f"---- Kaggle dataset loaded from {kaggle_dir}. ----")
+    logger.info("Kaggle dataset loaded from %s", kaggle_dir)
 
     frac = ENV_VARS["DATASET_FRAC"]
     if frac != 1.:
@@ -39,11 +42,11 @@ def get_dataset(dataset_id: str, split: str="test", eval_split: str="eval", num_
         "train": load.remove_tests_from_hf_dataset(hf_dataset[split]),
         "eval": hf_dataset[eval_split].shuffle(seed=42).select(range(min(num_eval, len(hf_dataset[eval_split])))),
     })
-    print(f"---- Non-kaggle dataset {dataset_id} loaded. ----")
+    logger.info("Non-kaggle dataset %s loaded.", dataset_id)
     frac = ENV_VARS["DATASET_FRAC"]
     if frac != 1.:
         return frac_dataset_dict(dataset_dict, frac)
-    print(f"Dataset example:", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
+    logger.info("Dataset example: %s", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
     return dataset_dict
 
 

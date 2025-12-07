@@ -1,32 +1,34 @@
+import logging
 import json
 import re
 import os
 import random
 import copy
 from itertools import permutations
+
 from datasets import Dataset
 import numpy as np
 
 from arc_tartiflette.utils import constants
 
+logger = logging.getLogger(__name__)
+
 NEONEYE_DATASETS = {
-    "arc-agi-2": [
-        ("ARC-AGI-2", "training"),
-        ("ARC-AGI-2", "evaluation")
-    ],   
+    "arc-agi-2": [("ARC-AGI-2", "training"), ("ARC-AGI-2", "evaluation")],
     "main_v1": [
         ("ARC-AGI-2", "training"),
         ("RE-ARC", "easy"),
         ("RE-ARC", "hard"),
-        ("ConceptARC", "all")
+        ("ConceptARC", "all"),
     ],
     "main_v2": [
         ("ARC-AGI-2", "training"),
         ("RE-ARC", "easy"),
         ("RE-ARC", "hard"),
         ("ConceptARC", "all"),
-    ]
+    ],
 }
+
 
 def convert_lists_to_np_arrays(task):
     if isinstance(task, list):
@@ -44,26 +46,34 @@ def convert_lists_to_np_arrays(task):
 
 
 def load_arc_challenges(filename: str):
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         json_data = json.load(f)
         # Convert lists to numpy arrays
         json_data = convert_lists_to_np_arrays(json_data)
         return json_data
+
 
 def collapse_last_lists(obj):
     # Dump nicely formatted JSON first
     dict_obj = convert_np_arrays_to_lists(obj)
     text = json.dumps(dict_obj, indent=4)
     # Collapse the innermost lists of numbers only
-    text = re.sub(r'\[\s+([0-9,\s]+?)\s+\]', lambda m: '[' + ' '.join(m.group(1).split()) + ']', text)
+    text = re.sub(
+        r"\[\s+([0-9,\s]+?)\s+\]",
+        lambda m: "[" + " ".join(m.group(1).split()) + "]",
+        text,
+    )
     return text
 
+
 def save_arc_challenges(data, filename: str):
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         f.write(collapse_last_lists(data))
+
 
 def print_arc_challenge(task):
     print(collapse_last_lists(task))
+
 
 def convert_np_arrays_to_lists(obj):
     if isinstance(obj, np.ndarray):
@@ -84,12 +94,12 @@ def load_challenges_kaggle_format(input_dir):
     for key, file_name in constants.ARC_INPUT_FILES.items():
         file_path = os.path.join(input_dir, file_name)
         input_dict[key] = load_arc_challenges(file_path)
-    
+
     # Reorganize data : solutions must be contained in task
     for d_name in ["train", "eval"]:
         out_dataset = {}
-        challenges = input_dict[d_name+"_challenges"]
-        solutions = input_dict[d_name+"_solutions"]
+        challenges = input_dict[d_name + "_challenges"]
+        solutions = input_dict[d_name + "_solutions"]
         for task_name, task in challenges.items():
             task_test_outputs = solutions[task_name]
             assert len(task["test"]) == len(solutions[task_name])
@@ -98,13 +108,15 @@ def load_challenges_kaggle_format(input_dir):
                 task["test"][i]["output"] = task_test_outputs[i]
             out_dataset[task_name] = task
         out_dict[d_name] = out_dataset
-    
+
     out_dict["test"] = input_dict["test_challenges"]
 
     return out_dict
 
 
-def load_challenges_neoneye_format(path_tuples, neoneye_dir: str="data/neoneye") -> dict:
+def load_challenges_neoneye_format(
+    path_tuples, neoneye_dir: str = "data/neoneye"
+) -> dict:
     """
     neoneye format: neoneye_dir/dataset_name/data/split_name/task_name.json
 
@@ -123,7 +135,6 @@ def load_challenges_neoneye_format(path_tuples, neoneye_dir: str="data/neoneye")
         else:
             expanded_tuples.append((dataset_name, split_name))
 
-
     for dataset_name, split_name in expanded_tuples:
         dataset_path = os.path.join(neoneye_dir, dataset_name, "data", split_name)
         dataset = {}
@@ -131,62 +142,78 @@ def load_challenges_neoneye_format(path_tuples, neoneye_dir: str="data/neoneye")
             if task_file.endswith(".json"):
                 task_name = task_file[:-5]
                 task_path = os.path.join(dataset_path, task_file)
-                with open(task_path, 'r') as f:
+                with open(task_path, "r") as f:
                     task_data = json.load(f)
                 dataset[task_name] = task_data
         # leave only letters, numbers and dots in dataset key
-        cleaned_dataset_name = re.sub(r'[^a-zA-Z0-9.]', '.', dataset_name)
-        cleaned_split_name = re.sub(r'[^a-zA-Z0-9.]', '.', split_name)
+        cleaned_dataset_name = re.sub(r"[^a-zA-Z0-9.]", ".", dataset_name)
+        cleaned_split_name = re.sub(r"[^a-zA-Z0-9.]", ".", split_name)
         datasets_key = f"{cleaned_dataset_name}.{cleaned_split_name}"
         datasets[datasets_key] = dataset
 
     return datasets
 
 
-def grid_to_str(grid: list[list[int]], format: dict[str, str]) -> str:
-    assert "row_end" in format.keys()
-    return format["row_end"].join(["".join([str(c) for c in row]) for row in grid])
+def grid_to_str(grid: list[list[int]], fmt: dict[str, str]) -> str:
+    assert "row_end" in fmt.keys()
+    return fmt["row_end"].join(["".join([str(c) for c in row]) for row in grid])
 
-def flatten_task(task: dict, prompt: bool=False, format: dict=constants.DEFAULT_PROMPT_FORMAT) -> str:
+
+def flatten_task(
+    task: dict, prompt: bool = False, fmt: dict = None 
+) -> str:
+    if fmt is None:
+        fmt = constants.DEFAULT_PROMPT_FORMAT
+
     # Prepare few-shot context from examples
-    context = format["bos_token"] + format["preprompt"]
+    context = fmt["bos_token"] + fmt["preprompt"]
     for i, ex in enumerate(task["train"]):
         if i > 0:
-            context += format["bos_token"]
-        context += format["input_beg"]
-        context += grid_to_str(ex["input"], format=format)
-        context += format["grid_end"]
-        context += format["output_beg"]
-        context += grid_to_str(ex["output"], format=format)
-        context += format["grid_end"]
-        context += format["eos_token"]
+            context += fmt["bos_token"]
+        context += fmt["input_beg"]
+        context += grid_to_str(ex["input"], fmt=fmt)
+        context += fmt["grid_end"]
+        context += fmt["output_beg"]
+        context += grid_to_str(ex["output"], fmt=fmt)
+        context += fmt["grid_end"]
+        context += fmt["eos_token"]
 
     # Prepare test example
     for ex in task["test"]:
-        ex_input_str = grid_to_str(ex["input"], format=format)
+        ex_input_str = grid_to_str(ex["input"], fmt=fmt)
 
-        context += format["input_beg"]
-        context += grid_to_str(ex["input"], format=format)
-        context += format["grid_end"]
+        context += fmt["input_beg"]
+        context += grid_to_str(ex["input"], fmt=fmt)
+        context += fmt["grid_end"]
 
         if prompt:
-            context += format["output_beg"]
+            context += fmt["output_beg"]
             break
 
         if "output" in ex.keys():
-            context += format["output_beg"]
-            context += grid_to_str(ex["output"], format=format)
-            context += format["grid_end"]
+            context += fmt["output_beg"]
+            context += grid_to_str(ex["output"], fmt=fmt)
+            context += fmt["grid_end"]
 
-        context += format["eos_token"]
+        context += fmt["eos_token"]
 
     return context
 
-def flatten_dataset(dataset: dict, prompt: bool=False, format: dict=constants.DEFAULT_PROMPT_FORMAT) -> list[dict]:
+
+def flatten_dataset(
+    dataset: dict, prompt: bool = False, fmt: dict | None = None
+) -> list[dict]:
+    if fmt is None:
+        fmt = constants.DEFAULT_PROMPT_FORMAT
     data = []
 
     for _, task_data in dataset.items():
-        data.append({"text": flatten_task(task_data, prompt=prompt, format=format), "task": task_data})
+        data.append(
+            {
+                "text": flatten_task(task_data, prompt=prompt, fmt=fmt),
+                "task": task_data,
+            }
+        )
     return data
 
 
@@ -195,16 +222,24 @@ def remove_tests_from_hf_dataset(hf_dataset: Dataset) -> Dataset:
         task = example["task"]
         task["test"] = []
         return {"task": task}
+
     return hf_dataset.map(remove_tests, remove_columns=["text"])
 
 
-def dict_to_transformers_dataset(dataset: dict, format: dict=constants.DEFAULT_PROMPT_FORMAT, keep_tests: bool=True) -> Dataset:
+def dict_to_transformers_dataset(
+    dataset: dict,
+    fmt: dict = None,
+    keep_tests: bool = True,
+) -> Dataset:
+    if fmt is None:
+        fmt = constants.DEFAULT_PROMPT_FORMAT
     if not keep_tests:
         # Remove outputs from test examples
         dataset = copy.deepcopy(dataset)
         for task in dataset.values():
             task["test"] = [test for test in task["test"] if "output" in test.keys()]
-    return Dataset.from_list(flatten_dataset(dataset, format=format))
+    return Dataset.from_list(flatten_dataset(dataset, fmt=fmt))
+
 
 def transformers_dataset_to_dict(hf_dataset: Dataset) -> dict:
     dataset = {f"task_{i}": task["task"] for i, task in enumerate(hf_dataset)}
@@ -212,8 +247,9 @@ def transformers_dataset_to_dict(hf_dataset: Dataset) -> dict:
         for ex in task["train"] + task["test"]:
             for key, grid in ex.items():
                 if key in ["input", "output"]:
-                        ex[key] = np.array(grid)
+                    ex[key] = np.array(grid)
     return dataset
+
 
 def sample_dict(data: dict, num_samples: int) -> dict:
     sampled_dict = dict(random.sample(list(data.items()), num_samples))
@@ -229,13 +265,13 @@ def augment_rotations_flips(task: dict, max_transformations: int) -> list[dict]:
 
     transformations = [
         lambda x: x,  # original
-        lambda x: np.rot90(x, k=1), # 90 degrees
-        lambda x: np.rot90(x, k=2), # 180 degrees
-        lambda x: np.rot90(x, k=3), # 270 degrees
-        lambda x: np.fliplr(x),     # vertical flip
-        lambda x: np.fliplr(np.rot90(x, k=1)), # vertical flip + 90 degrees
-        lambda x: np.fliplr(np.rot90(x, k=2)), # vertical flip + 180 degrees
-        lambda x: np.fliplr(np.rot90(x, k=3)), # vertical flip + 270 degrees
+        lambda x: np.rot90(x, k=1),  # 90 degrees
+        lambda x: np.rot90(x, k=2),  # 180 degrees
+        lambda x: np.rot90(x, k=3),  # 270 degrees
+        lambda x: np.fliplr(x),  # vertical flip pylint: disable=unnecessary-lambda
+        lambda x: np.fliplr(np.rot90(x, k=1)),  # vertical flip + 90 degrees
+        lambda x: np.fliplr(np.rot90(x, k=2)),  # vertical flip + 180 degrees
+        lambda x: np.fliplr(np.rot90(x, k=3)),  # vertical flip + 270 degrees
     ]
 
     for i, transform in enumerate(transformations):
@@ -245,13 +281,11 @@ def augment_rotations_flips(task: dict, max_transformations: int) -> list[dict]:
         for ex in task["train"]:
             new_ex = {
                 "input": transform(ex["input"]),
-                "output": transform(ex["output"])
+                "output": transform(ex["output"]),
             }
             new_task["train"].append(new_ex)
         for ex in task["test"]:
-            new_ex = {
-                "input": transform(ex["input"])
-            }
+            new_ex = {"input": transform(ex["input"])}
             if "output" in ex:
                 new_ex["output"] = transform(ex["output"])
             new_task["test"].append(new_ex)
@@ -269,7 +303,7 @@ def random_permutations(size=10, n_samples=5, seed=None):
     return [rng.permutation(size) for _ in range(n_samples)]
 
 
-def augment_color_permutations(task: dict, max_perm: int=3) -> list[dict]:
+def augment_color_permutations(task: dict, max_perm: int = 3) -> list[dict]:
     """
     Generate augmented tasks by permuting the colors in the input and output grids.
     Returns a list of augmented tasks including the original.
@@ -279,7 +313,7 @@ def augment_color_permutations(task: dict, max_perm: int=3) -> list[dict]:
 
     augmented_tasks = []
 
-    sampled_perms =  [np.array(p) for p in random_permutations(10, max_perm)]
+    sampled_perms = [np.array(p) for p in random_permutations(10, max_perm)]
 
     for perm in sampled_perms:
         new_task = {"train": [], "test": []}
@@ -301,8 +335,7 @@ def augment_color_permutations(task: dict, max_perm: int=3) -> list[dict]:
     return augmented_tasks
 
 
-
-def augment_examples_order_permutations(task: dict, max_perm: int=3) -> list[dict]:
+def augment_examples_order_permutations(task: dict, max_perm: int = 3) -> list[dict]:
     """
     Generate augmented tasks by permuting the order of train and test examples.
     Returns a list of augmented tasks including the original.
@@ -312,16 +345,17 @@ def augment_examples_order_permutations(task: dict, max_perm: int=3) -> list[dic
 
     augmented_tasks = []
 
-
     combined = task["train"] + task["test"]
     length = len(combined)
-    possible_permutations = length * (length - 1) // 2  # approximate number of unique permutations
+    possible_permutations = (
+        length * (length - 1) // 2
+    )  # approximate number of unique permutations
     sampled_perms = random_permutations(length, min(max_perm, possible_permutations))
 
     for perm in sampled_perms:
         new_task = {
-            "train": [combined[i] for i in perm[:len(task["train"])]],
-            "test": [combined[i] for i in perm[len(task["train"]):]]
+            "train": [combined[i] for i in perm[: len(task["train"])]],
+            "test": [combined[i] for i in perm[len(task["train"]) :]],
         }
         augmented_tasks.append(new_task)
 
@@ -329,35 +363,48 @@ def augment_examples_order_permutations(task: dict, max_perm: int=3) -> list[dic
 
 
 def augment_transformers_dataset(
-        dataset: Dataset, 
-        format: dict=constants.DEFAULT_PROMPT_FORMAT,
-        augment_types: list[str]=["rot_flip", "color", "order"],
-        multipliers: dict={},
-    ) -> Dataset:
+    dataset: Dataset,
+    fmt: dict | None = None,
+    augment_types: list[str] | None = None,
+    multipliers: dict = {},
+) -> Dataset:
     """
     Efficiently applies a task augmentation function to a Hugging Face Dataset.
 
     Args:
         dataset (Dataset): Dataset with {"text": ..., "task": ...}.
         augment_fn (callable): Function that takes a task dict -> list of task dicts.
-        format (dict, optional): Used to flatten each new task into text.
+        fmt (dict, optional): Used to flatten each new task into text.
         keep_original (bool): If True, keep original examples as well.
 
     Returns:
         Dataset: Augmented dataset.
     """
+    if fmt is None:
+        fmt = constants.DEFAULT_PROMPT_FORMAT
+    if augment_types is None:
+        augment_types = ["rot_flip", "color", "order"]
+
     def gen():
         for item in dataset:
-            for aug_task in augment_task(item["task"], augment_types=augment_types, multipliers=multipliers):
+            for aug_task in augment_task(
+                item["task"], augment_types=augment_types, multipliers=multipliers
+            ):
                 yield {
-                    "text": flatten_task(aug_task, prompt=False, format=format) if format else "",
+                    "text": (
+                        flatten_task(aug_task, prompt=False, fmt=fmt)
+                        if fmt
+                        else ""
+                    ),
                     "task": aug_task,
                 }
+
     return Dataset.from_generator(gen)
 
 
-
-def augment_task(task: dict, augment_types: list[str], multipliers: dict[str, int]) -> dict:
+def augment_task(
+    task: dict, augment_types: list[str], multipliers: dict[str, int]
+) -> dict:
     default_multipliers = {
         "rot_flip": 8,
         "color": 3,
@@ -368,7 +415,9 @@ def augment_task(task: dict, augment_types: list[str], multipliers: dict[str, in
     if "rot_flip" in augment_types:
         new_tasks = []
         for t in augmented_tasks:
-            new_tasks.extend(augment_rotations_flips(t, max_transformations=mul["rot_flip"]))
+            new_tasks.extend(
+                augment_rotations_flips(t, max_transformations=mul["rot_flip"])
+            )
         augmented_tasks = new_tasks
 
     if "color" in augment_types:
@@ -380,28 +429,34 @@ def augment_task(task: dict, augment_types: list[str], multipliers: dict[str, in
     if "order" in augment_types:
         new_tasks = []
         for t in augmented_tasks:
-            new_tasks.extend(augment_examples_order_permutations(t, max_perm=mul["order"]))
+            new_tasks.extend(
+                augment_examples_order_permutations(t, max_perm=mul["order"])
+            )
         augmented_tasks = new_tasks
-    
+
     return augmented_tasks
 
 
-def augment_dict(data: dict, augment_types: list[str], multipliers: dict[str, int]) -> dict:
+def augment_dict(
+    data: dict, augment_types: list[str], multipliers: dict[str, int]
+) -> dict:
     """
     Augment each task in the dataset according to the specified augmentation types.
     Supported types: "rot_flip", "color", "order"
     Returns a new dataset dict with augmented tasks.
     """
     # If grids are not numpy arrays, convert them
-    print("Converting grids to numpy arrays...")
+    logger.info("Converting grids to numpy arrays...")
     for task in data.values():
         for split in ["train", "test"]:
             for example in task[split]:
                 if not isinstance(example["input"], np.ndarray):
                     example["input"] = np.array(example["input"])
-                if "output" in example and not isinstance(example["output"], np.ndarray):
+                if "output" in example and not isinstance(
+                    example["output"], np.ndarray
+                ):
                     example["output"] = np.array(example["output"])
-    
+
     default_multipliers = {
         "color": 3,
         "order": 3,
@@ -409,11 +464,11 @@ def augment_dict(data: dict, augment_types: list[str], multipliers: dict[str, in
 
     mul = {**default_multipliers, **multipliers}
 
-    print("Augmenting tasks...")
+    logger.info("Augmenting tasks...")
     augmented_data = {}
     for i, (task_name, task) in enumerate(data.items()):
         if i % 10 == 0:
-            print(f"  Augmented {i}/{len(data)} tasks.")
+            logger.debug("  Augmented %d/%d tasks.", i, len(data))
 
         augmented_tasks = augment_task(task, augment_types, mul)
 
@@ -425,14 +480,16 @@ def augment_dict(data: dict, augment_types: list[str], multipliers: dict[str, in
     return augmented_data
 
 
-from arc_tartiflette.utils import plot
+
 if __name__ == "__main__":
-    dataset = {"0a938d79":{"train": [{"input": [[0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0]]}, {"input": [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0]]}, {"input": [[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2]]}, {"input": [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 4, 4, 4, 4, 4, 4, 4], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 4, 4, 4, 4, 4, 4, 4], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 4, 4, 4, 4, 4, 4, 4]]}], "test": [{"input": [[0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0]]}]}}
+    from arc_tartiflette.utils import plot
+    SAMPLE_TASK = "0a938d79"
+    SAMPLE_TASK_PATH = "data/neoneye/ARC-AGI-1/data/training/0a938d79.json"
+    with open(SAMPLE_TASK_PATH, "r", encoding="utf-8") as f:
+        dataset = {SAMPLE_TASK: json.load(f)}
 
     data = augment_dict(
-        dataset,
-        augment_types=["rot_flip"],
-        multipliers={"rot_flip": 8}
+        dataset, augment_types=["rot_flip"], multipliers={"rot_flip": 8}
     )
     plot.peek_dict(data, num_tasks=5)
     flattened_data = flatten_dataset(data)

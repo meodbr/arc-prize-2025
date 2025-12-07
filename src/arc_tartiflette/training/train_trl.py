@@ -1,3 +1,5 @@
+import logging
+
 from trl import SFTConfig, SFTTrainer
 from datasets import Dataset, DatasetDict
 import torch
@@ -5,6 +7,8 @@ import torch
 from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
 from arc_tartiflette.model_tools.custom_pe import CustomCompletionMaskDataCollator
 from arc_tartiflette.config.settings import ENV_VARS
+
+logger = logging.getLogger(__name__)
 
 def train_trl(
         model, 
@@ -57,10 +61,10 @@ def train_trl(
     )
 
     # Start training
-    print("Train")
+    logger.info("Starting training with TRL SFTTrainer.")
     trainer.train()
 
     # Eval
-    print("Eval")
+    logger.info("Starting evaluation.")
     results = trainer.evaluate()
-    print(results)
+    logger.info("Evaluation results: %s", results)

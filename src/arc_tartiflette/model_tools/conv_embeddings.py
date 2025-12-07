@@ -1,5 +1,11 @@
+import logging
+
 from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_update
-from transformers.models.mistral.modeling_mistral import MistralRotaryEmbedding, MistralModel, MistralForCausalLM
+from transformers.models.mistral.modeling_mistral import (
+    MistralRotaryEmbedding,
+    MistralModel,
+    MistralForCausalLM,
+)
 from transformers import PreTrainedTokenizerFast, AutoTokenizer
 from transformers.data.data_collator import DataCollatorMixin
 from datasets import DatasetDict, Dataset
@@ -8,11 +14,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from arc_tartiflette.model_tools.custom_pe import CustomRotaryEmbedding2D, CustomCompletionMaskDataCollator
+from arc_tartiflette.model_tools.custom_pe import (
+    CustomRotaryEmbedding2D,
+    CustomCompletionMaskDataCollator,
+)
 from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
 from arc_tartiflette.model_tools.tokenize_functions import make_completion_mask
 from arc_tartiflette.graph.arc_grid import get_default_arc_token_mapping, ArcGrid
 from arc_tartiflette.config.settings import ENV_VARS
+
+logger = logging.getLogger(__name__)
 
 
 class CustomConvEmbedding(nn.Embedding):
@@ -21,11 +32,18 @@ class CustomConvEmbedding(nn.Embedding):
     sums all embeddings of the subtokens (ignoring ID=0), and normalizes each summed vector.
     """
 
-    def __init__(self, num_embeddings: int, embedding_dim: int, num_subtokens: int = 8, eps: float = 1e-6, **kwargs):
+    def __init__(
+        self,
+        num_embeddings: int,
+        embedding_dim: int,
+        num_subtokens: int = 8,
+        eps: float = 1e-6,
+        **kwargs,
+    ):
         super().__init__(num_embeddings, embedding_dim, **kwargs)
         self.num_subtokens = num_subtokens
         self.norm = nn.RMSNorm(embedding_dim, eps=eps)  # Same as MistralRMSNorm
-        self.oob_token_id = 0 # TODO: Change to tokenizer oob token
+        self.oob_token_id = 0  # TODO: Change to tokenizer oob token
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
@@ -34,9 +52,15 @@ class CustomConvEmbedding(nn.Embedding):
         """
 
         # (B, L, S, D)
-        embeds = F.embedding(input, self.weight, self.padding_idx, 
-                             self.max_norm, self.norm_type, 
-                             self.scale_grad_by_freq, self.sparse)
+        embeds = F.embedding(
+            input,
+            self.weight,
+            self.padding_idx,
+            self.max_norm,
+            self.norm_type,
+            self.scale_grad_by_freq,
+            self.sparse,
+        )
 
         # Mask out special tokens (ID == 0)
         mask = (input != self.oob_token_id).unsqueeze(-1)  # (B, L, S, 1)
@@ -69,23 +93,41 @@ class CustomMistralModelConvEmbedding(MistralForCausalLM):
         super().__init__(config)
         self.model = CustomMistralModelConvBase(config)
         self.post_init()
-        print("After post_init:")
-        print("CustomMistralModelConvEmbedding.config:", self.config)
-        print("CustomMistralModelConvEmbedding.generation_config:", self.generation_config)
+        logger.info("CustomMistralModelConvEmbedding initialized, post_init called.")
+        logger.debug("CustomMistralModelConvEmbedding.config: %s", self.config)
+        logger.debug(
+            "CustomMistralModelConvEmbedding.generation_config: %s",
+            self.generation_config,
+        )
 
 
-def tokenize_simple_char(char: str=None, tokenizer: PreTrainedTokenizerFast=None, current_position: list[int]=[0, 0], id:int=None) -> dict:
+def tokenize_simple_char(
+    char: str = None,
+    tokenizer: PreTrainedTokenizerFast = None,
+    current_position: list[int] | None = None,
+    tok_id: int = None,
+) -> dict:
+    if current_position is None:
+        current_position = [0, 0]
     token_mapping = get_default_arc_token_mapping(tokenizer)
-    char_token_id = id if id else tokenizer(str(char))["input_ids"][-1]
+    char_token_id = tok_id if tok_id else tokenizer(str(char))["input_ids"][-1]
     tokenized = {
-        "input_ids": torch.tensor([[char_token_id] + [token_mapping["out_of_bounds"]]*7], dtype=torch.long),
+        "input_ids": torch.tensor(
+            [[char_token_id] + [token_mapping["out_of_bounds"]] * 7], dtype=torch.long
+        ),
         "position_ids": torch.tensor([list(current_position)], dtype=torch.long),
-        "labels": torch.tensor([char_token_id], dtype=torch.long)
+        "labels": torch.tensor([char_token_id], dtype=torch.long),
     }
     return tokenized
 
 
-def tokenize_conv_grid(grid: list[list[int]], tokenizer: PreTrainedTokenizerFast, current_position: tuple[int, int]=(0,0)):
+def tokenize_conv_grid(
+    grid: list[list[int]],
+    tokenizer: PreTrainedTokenizerFast,
+    current_position: tuple[int, int] | None = None,
+):
+    if current_position is None:
+        current_position = (0, 0)
     # Create token mapping
     token_mapping = get_default_arc_token_mapping(tokenizer)
 
@@ -96,25 +138,47 @@ def tokenize_conv_grid(grid: list[list[int]], tokenizer: PreTrainedTokenizerFast
     tokenized_path = arc_grid.random_exploration()
 
     # add current position to position_ids (shape is [seq_len, 2])
-    tokenized_path["position_ids"] = tokenized_path["position_ids"] + np.array(current_position)
+    tokenized_path["position_ids"] = tokenized_path["position_ids"] + np.array(
+        current_position
+    )
 
-    grid_end = current_position[0] + arc_grid.height, current_position[1] + arc_grid.width
+    grid_end = (
+        current_position[0] + arc_grid.height,
+        current_position[1] + arc_grid.width,
+    )
 
     return tokenized_path, grid_end
 
 
-def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, current_position: list[int]=(0,0), mask_output=False):
+def tokenize_conv_example(
+    example: dict,
+    tokenizer: PreTrainedTokenizerFast,
+    current_position: list[int] = (0, 0),
+    mask_output=False,
+):
     fmt = get_architects_prompt_format(tokenizer)
 
     tokenized = []
 
     for grid in ["input", "output"]:
         if grid == "input":
-            tokenized.append(tokenize_simple_char(id=fmt["input_beg_id"], tokenizer=tokenizer, current_position=current_position))
+            tokenized.append(
+                tokenize_simple_char(
+                    id=fmt["input_beg_id"],
+                    tokenizer=tokenizer,
+                    current_position=current_position,
+                )
+            )
         else:
-            tokenized.append(tokenize_simple_char(id=fmt["output_beg_id"], tokenizer=tokenizer, current_position=current_position))
-        
-        current_position = (current_position[0]+1, current_position[1]+1)
+            tokenized.append(
+                tokenize_simple_char(
+                    id=fmt["output_beg_id"],
+                    tokenizer=tokenizer,
+                    current_position=current_position,
+                )
+            )
+
+        current_position = (current_position[0] + 1, current_position[1] + 1)
         if not mask_output or grid == "input":
             tokenized_grid, new_pos = tokenize_conv_grid(
                 example[grid],
@@ -130,6 +194,7 @@ def tokenize_conv_example(example: dict, tokenizer: PreTrainedTokenizerFast, cur
         "labels": torch.cat([t["labels"] for t in tokenized], dim=0),
     }, current_position
 
+
 def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast, prompt=False):
     fmt = get_architects_prompt_format(tokenizer)
 
@@ -137,29 +202,51 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast, prompt=Fa
     current_position = [0, 0]
 
     # Task beg
-    tokenized.append(tokenize_simple_char(id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=(0,0)))
-    current_position = [current_position[0]+1, current_position[1]+1]
+    tokenized.append(
+        tokenize_simple_char(
+            id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=(0, 0)
+        )
+    )
+    current_position = [current_position[0] + 1, current_position[1] + 1]
     for char in fmt["preprompt"]:
-        tokenized.append(tokenize_simple_char(char=char, tokenizer=tokenizer, current_position=current_position))
-        current_position = (current_position[0]+1, current_position[1]+1)
-
+        tokenized.append(
+            tokenize_simple_char(
+                char=char, tokenizer=tokenizer, current_position=current_position
+            )
+        )
+        current_position = (current_position[0] + 1, current_position[1] + 1)
 
     for i, example in enumerate(task["train"] + task["test"]):
         if i > 0:
             # Example separator
-            tokenized.append(tokenize_simple_char(id=fmt["bos_token_id"], tokenizer=tokenizer, current_position=current_position))
-            current_position = (current_position[0]+1, current_position[1]+1)
-        
-        mask_output = prompt and i == (len(task["train"] + task["test"]) - 1) # Mask last output
+            tokenized.append(
+                tokenize_simple_char(
+                    tok_id=fmt["bos_token_id"],
+                    tokenizer=tokenizer,
+                    current_position=current_position,
+                )
+            )
+            current_position = (current_position[0] + 1, current_position[1] + 1)
 
-        tokenized_example, new_pos = tokenize_conv_example(example, tokenizer, current_position, mask_output=mask_output)
+        mask_output = prompt and i == (
+            len(task["train"] + task["test"]) - 1
+        )  # Mask last output
+
+        tokenized_example, new_pos = tokenize_conv_example(
+            example, tokenizer, current_position, mask_output=mask_output
+        )
         tokenized.append(tokenized_example)
         current_position = new_pos
 
         if not mask_output:
-            tokenized.append(tokenize_simple_char(id=fmt["eos_token_id"], tokenizer=tokenizer, current_position=current_position))
-            current_position = (current_position[0]+1, current_position[1]+1)
-
+            tokenized.append(
+                tokenize_simple_char(
+                    tok_id=fmt["eos_token_id"],
+                    tokenizer=tokenizer,
+                    current_position=current_position,
+                )
+            )
+            current_position = (current_position[0] + 1, current_position[1] + 1)
 
     return {
         "input_ids": torch.cat([t["input_ids"] for t in tokenized], dim=0),
@@ -167,7 +254,14 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast, prompt=Fa
         "labels": torch.cat([t["labels"] for t in tokenized], dim=0),
     }
 
-def tokenize_row_conv(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding="max_length", truncation=True):
+
+def tokenize_row_conv(
+    ds_row,
+    tokenizer: AutoTokenizer,
+    max_length=4096,
+    padding="max_length",
+    truncation=True,
+):
     """
     Tokenizes a batch of tasks with 2D positional encoding.
     """
@@ -183,9 +277,26 @@ def tokenize_row_conv(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding
     elif padding == "max_length" and len(tokenized["input_ids"]) < max_length:
         pad_length = max_length - len(tokenized["input_ids"])
 
-        tokenized["input_ids"] = torch.cat([tokenized["input_ids"], torch.tensor([[tokenizer.pad_token_id]*8] * pad_length, dtype=torch.long)], dim=0)
-        tokenized["position_ids"] = torch.cat([tokenized["position_ids"], torch.tensor([[0,0]] * pad_length, dtype=torch.long)], dim=0)
-        tokenized["labels"] = torch.cat([tokenized["labels"], torch.tensor([-100] * pad_length, dtype=torch.long)], dim=0)
+        tokenized["input_ids"] = torch.cat(
+            [
+                tokenized["input_ids"],
+                torch.tensor(
+                    [[tokenizer.pad_token_id] * 8] * pad_length, dtype=torch.long
+                ),
+            ],
+            dim=0,
+        )
+        tokenized["position_ids"] = torch.cat(
+            [
+                tokenized["position_ids"],
+                torch.tensor([[0, 0]] * pad_length, dtype=torch.long),
+            ],
+            dim=0,
+        )
+        tokenized["labels"] = torch.cat(
+            [tokenized["labels"], torch.tensor([-100] * pad_length, dtype=torch.long)],
+            dim=0,
+        )
 
     attention_mask = [1 if id != -100 else 0 for id in tokenized["labels"]]
 
@@ -197,7 +308,7 @@ def tokenize_row_conv(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding
 
 
 def tokenize_dataset_conv(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
-    print("Tokenizing dataset with Conv tokenizer...")
+    logger.info("Tokenizing dataset with Conv tokenizer...")
     max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
     padding = "max_length"
     truncation = True
@@ -207,58 +318,57 @@ def tokenize_dataset_conv(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
     def tokenize_function(example):
         tokenized = example
         tokenized["completion_mask"] = make_completion_mask(
-            tokenized["labels"], 
-            tokenized["attention_mask"], 
+            tokenized["labels"],
+            tokenized["attention_mask"],
             special_token_id=tokenizer("I")["input_ids"][0],
             n=1,
         )
         return tokenized
-    tokenized_datasets = dataset_dict.map(tokenize_row_conv, fn_kwargs={"max_length": max_length, "tokenizer": tokenizer, "padding": padding, "truncation": truncation}, batched=False)
+
+    tokenized_datasets = dataset_dict.map(
+        tokenize_row_conv,
+        fn_kwargs={
+            "max_length": max_length,
+            "tokenizer": tokenizer,
+            "padding": padding,
+            "truncation": truncation,
+        },
+        batched=False,
+    )
     tokenized_datasets = tokenized_datasets.map(tokenize_function, batched=True)
-    print("---- Dataset tokenized with Conv tokenizer. ----")
-    print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
+    logger.info("Dataset tokenized with Conv tokenizer.")
+    logger.debug(
+        "Tokenized dataset example: %s",
+        (
+            tokenized_datasets["train"][0]
+            if len(tokenized_datasets["train"]) > 0
+            else "N/A"
+        ),
+    )
     return tokenized_datasets
 
 
-if __name__ == "__main__":    # Test the conv tokenizer
+if __name__ == "__main__":  # Test the conv tokenizer
     tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M")
     example_task = {
-        "train": [
-            {
-                "input": [
-                    [1, 2],
-                    [3, 4]
-                ],
-                "output": [
-                    [4, 3],
-                    [2, 1]
-                ]
-            }
-        ],
-        "test": [
-            {
-                "input": [
-                    [5, 6],
-                    [7, 8]
-                ],
-                "output": [
-                    [8, 7],
-                    [6, 5]
-                ]
-            }
-        ]
+        "train": [{"input": [[1, 2], [3, 4]], "output": [[4, 3], [2, 1]]}],
+        "test": [{"input": [[5, 6], [7, 8]], "output": [[8, 7], [6, 5]]}],
     }
-    tokenizer.pad_token = tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+    tokenizer.pad_token = (
+        tokenizer.eos_token if not tokenizer.pad_token else tokenizer.pad_token
+    )
     row = {"task": example_task}
     tokenized = tokenize_row_conv(row, tokenizer, max_length=128)
     print("Tokenized example input_ids:", tokenized["input_ids"])
     print("Tokenized example position_ids:", tokenized["position_ids"])
     print("Tokenized example labels:", tokenized["labels"])
     print("Tokenized example attention_mask:", tokenized["attention_mask"])
-    
+
     hf_dataset = Dataset.from_list([row])
-    dataset_dict = DatasetDict({
-        "train": hf_dataset,
-    })
+    dataset_dict = DatasetDict(
+        {
+            "train": hf_dataset,
+        }
+    )
     tokenized_datasets = tokenize_dataset_conv(dataset_dict, tokenizer)
-    print("Tokenized dataset example input_ids:", tokenized_datasets['train'][0])
+    print("Tokenized dataset example input_ids:", tokenized_datasets["train"][0])

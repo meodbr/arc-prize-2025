@@ -1,6 +1,7 @@
 from typing import Any
 import torch
 
+
 class ExampleMaskingDataCollator:
     tokenizer: Any
     max_length: int = 2048
@@ -20,15 +21,17 @@ class ExampleMaskingDataCollator:
         # Initialize labels as copy of input_ids
         labels = batch["input_ids"].clone()
 
-        # 🧠 Custom logic here — mask out tokens, modify labels, etc.
+        # Custom logic here — mask out tokens, modify labels, etc.
         for i, input_ids in enumerate(batch["input_ids"]):
             # Example: only train on text after "### Response:"
             resp_ids = self.tokenizer.encode("### Response:", add_special_tokens=False)
             for j in range(len(input_ids) - len(resp_ids) + 1):
-                if torch.equal(input_ids[j:j+len(resp_ids)], torch.tensor(resp_ids, device=input_ids.device)):
-                    labels[i, :j+len(resp_ids)] = -100
+                if torch.equal(
+                    input_ids[j : j + len(resp_ids)],
+                    torch.tensor(resp_ids, device=input_ids.device),
+                ):
+                    labels[i, : j + len(resp_ids)] = -100
                     break
 
         batch["labels"] = labels
         return batch
-    

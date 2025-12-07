@@ -169,7 +169,7 @@ requires-dist = [
     { name = "huggingface-hub" },
     { name = "peft" },
     { name = "peft", marker = "extra == 'train'" },
-    { name = "torch", specifier = ">=2.4,<2.9" },
+    { name = "torch", specifier = ">=2.4,<2.10" },
     { name = "transformers" },
     { name = "trl" },
     { name = "trl", marker = "extra == 'train'" },

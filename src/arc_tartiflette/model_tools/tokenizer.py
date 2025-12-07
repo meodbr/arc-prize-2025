@@ -1,5 +1,6 @@
-from tokenizers import Tokenizer
 import json
+
+from tokenizers import Tokenizer
 import torch
 
 #
@@ -26,7 +27,7 @@ def get_or_map_special_tokens(data, mapping=None):
 
 def shrink_tokenizer_vocab(tokenizer, keep_indices, keep_special=True, remove_unk=False):
     assert tokenizer.is_fast
-    tok_json = json.loads(tokenizer._tokenizer.to_str())
+    tok_json = json.loads(tokenizer._tokenizer.to_str()) # pylint: disable=protected-access
     assert tok_json['model']['type'] == "BPE"
 
     if keep_special:  # get special tokens to keep
@@ -46,7 +47,7 @@ def shrink_tokenizer_vocab(tokenizer, keep_indices, keep_special=True, remove_un
     tok_json['added_tokens'] = sorted(tok_json['added_tokens'], key=lambda t: t['id'])
     get_or_map_special_tokens(tok_json.get('post_processor'), mapping)
 
-    tokenizer._tokenizer = Tokenizer.from_str(json.dumps(tok_json))  # reload json, modifying tokenizer in-place
+    tokenizer._tokenizer = Tokenizer.from_str(json.dumps(tok_json))  # reload json, modifying tokenizer in-place pylint: disable=protected-access
 
     if remove_unk:
         tokenizer.unk_token = None
@@ -82,7 +83,7 @@ def remove_tokenizer_normalizer(tokenizer):
     tokenizer_json = json.loads(tokenizer._tokenizer.to_str())
     if tokenizer_json.get('normalizer') is not None:
         tokenizer_json['normalizer'] = None
-        tokenizer._tokenizer = Tokenizer.from_str(json.dumps(tokenizer_json))
+        tokenizer._tokenizer = Tokenizer.from_str(json.dumps(tokenizer_json)) # pylint: disable=protected-access
 
 
 def keep_single_char_tokens(model, tokenizer, keep=None, keep_norm=False, keep_model_tok=True, **kwargs):
@@ -184,7 +185,7 @@ def compare_distance_between_original_and_new_direction_token_embeddings(model, 
         for direction in range(1, 8):
             new_id = tokenizer(f"<{color}_{direction}>")["input_ids"][-1]
             distances[(color, direction)] = torch.norm(input_embeds[original_id] - input_embeds[new_id]).item()
-    
+
     # 2 different colors for comparison
     for color in [0, 1]:
         for direction in range(8):
@@ -198,9 +199,10 @@ if __name__ == "__main__":
     from transformers import AutoTokenizer, AutoModelForCausalLM
     from arc_tartiflette.graph.arc_grid import get_default_arc_token_mapping
 
-    model_name = "HuggingFaceTB/SmolLM2-135M"
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
+    MODEL_NAME = "HuggingFaceTB/SmolLM2-135M"
+
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16, device_map="auto")
 
     print(f"Original tokenizer vocab size: {len(tokenizer)}")
     print(f"Original model parameters: {sum(p.numel() for p in model.parameters())/1e9:.3f}B")

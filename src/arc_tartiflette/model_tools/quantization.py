@@ -1,12 +1,14 @@
+import logging
+
 import torch
 import bitsandbytes as bnb
 from transformers import AutoModelForCausalLM, AutoConfig
 
+logger = logging.getLogger(__name__)
+
+
 def print_quantization_info(
-    model_name: str,
-    quantization_config=None,
-    device_map="cpu",
-    verbose=True
+    model_name: str, quantization_config=None, device_map="cpu", verbose=True
 ):
     """
     Load a model in dry-run mode (on CPU) and print quantization details:
@@ -27,7 +29,7 @@ def print_quantization_info(
         config=config,
         quantization_config=quantization_config,
         device_map=device_map,
-        low_cpu_mem_usage=True
+        low_cpu_mem_usage=True,
     )
 
     n_total = 0
@@ -46,20 +48,15 @@ def print_quantization_info(
 
     total_params = sum(p.numel() for p in model.parameters())
     quantized_params = sum(
-        p.numel() for m in model.modules()
+        p.numel()
+        for m in model.modules()
         if isinstance(m, (bnb.nn.Linear4bit, bnb.nn.Linear8bitLt))
         for p in m.parameters()
     )
 
     non_quantized_params = total_params - quantized_params
 
-    param_bytes = {
-        "float32": 4,
-        "float16": 2,
-        "bfloat16": 2,
-        "int8": 1,
-        "int4": 0.5
-    }
+    param_bytes = {"float32": 4, "float16": 2, "bfloat16": 2, "int8": 1, "int4": 0.5}
 
     # Determine quant level
     quant_type = None
@@ -72,7 +69,7 @@ def print_quantization_info(
     else:
         quant_type = "float16"
         bytes_per_param = param_bytes["float16"]
-    
+
     vram_bytes = 0
     for m in model.modules():
         if isinstance(m, bnb.nn.Linear4bit):
@@ -83,31 +80,31 @@ def print_quantization_info(
             vram_bytes += sum(p.numel() * 2 for p in m.parameters())  # assume fp16
     est_vram_gb = vram_bytes / (1024**3)
 
-    print("───────────────────────────────────────────────")
-    print(f" Model: {model_name}")
-    print(f" Quantization type: {quant_type}")
-    print(f" Total modules: {n_total}")
-    print(f" Quantized modules: {n_quant} ({100*n_quant/n_total:.1f}%)")
-    print(f" Non-quantized modules: {n_total - n_quant}")
-    print(f" Total parameters: {total_params/1e9:.2f}B")
-    print(f" Quantized parameters: {quantized_params/1e9:.2f}B")
-    print(f" Non-quantized parameters: {non_quantized_params/1e9:.2f}B")
-    print(f" Estimated VRAM after quantization: {est_vram_gb:.2f} GB")
-    print("───────────────────────────────────────────────")
+    logger.debug("───────────────────────────────────────────────")
+    logger.debug("Model: %s", model_name)
+    logger.debug("Quantization type: %s", quant_type)
+    logger.debug("Total modules: %d", n_total)
+    logger.debug("Quantized modules: %d (%.1f%%)", n_quant, 100 * n_quant / n_total)
+    logger.debug("Non-quantized modules: %d", n_total - n_quant)
+    logger.debug("Total parameters: %.2fB", total_params / 1e9)
+    logger.debug("Quantized parameters: %.2fB", quantized_params / 1e9)
+    logger.debug("Non-quantized parameters: %.2fB", non_quantized_params / 1e9)
+    logger.debug("Estimated VRAM after quantization: %.2f GB", est_vram_gb)
+    logger.debug("───────────────────────────────────────────────")
 
     if verbose:
-        print("\nQuantized layers:")
+        logger.debug("Quantized layers:")
         for name in quantized_layers[:20]:
-            print(f"  - {name}")
+            logger.debug("  - %s", name)
         if len(quantized_layers) > 20:
-            print(f"  ... (+{len(quantized_layers)-20} more)")
+            logger.debug("  ... (+%d more)", len(quantized_layers) - 20)
 
         if float_layers:
-            print("\nUnquantized layers (first 10):")
+            logger.debug("Unquantized layers (first 10):")
             for name in float_layers[:10]:
-                print(f"  - {name}")
+                logger.debug("  - %s", name)
             if len(float_layers) > 10:
-                print(f"  ... (+{len(float_layers)-10} more)")
+                logger.debug("  ... (+%d more)", len(float_layers) - 10)
 
     return {
         "model_name": model_name,
@@ -117,5 +114,5 @@ def print_quantization_info(
         "total_params": total_params,
         "estimated_vram_gb": est_vram_gb,
         "quantized_layers": quantized_layers,
-        "unquantized_layers": float_layers
+        "unquantized_layers": float_layers,
     }

@@ -1,3 +1,5 @@
+import logging
+
 import torch
 from transformers import AutoTokenizer
 from datasets import DatasetDict
@@ -6,17 +8,21 @@ import numpy as np
 from arc_tartiflette.config.settings import ENV_VARS
 from arc_tartiflette.model_tools.tokenizer import get_architects_prompt_format
 
+logger = logging.getLogger(__name__)
 
-def make_completion_mask(input_ids: torch.Tensor, attention_mask: torch.Tensor, special_token_id: int, n: int) -> torch.Tensor:
+
+def make_completion_mask(
+    input_ids: torch.Tensor, attention_mask: torch.Tensor, special_token_id: int, n: int
+) -> torch.Tensor:
     """
     Creates a mask that zeros out all tokens up to and including the nth occurrence
     of a specific token per sequence.
-    
+
     Args:
         input_ids (torch.Tensor): [batch, seq_len]
         special_token_id (int): token ID to count
         n (int): number of occurrences to skip before computing loss
-    
+
     Returns:
         torch.Tensor: [batch, seq_len] mask (1 = keep, 0 = ignore)
     """
@@ -34,7 +40,11 @@ def make_completion_mask(input_ids: torch.Tensor, attention_mask: torch.Tensor, 
     # Optionally exclude the nth token itself:
     loss_mask = torch.where(cumsum > n, 1, 0)
 
-    if attention_mask != None and isinstance(attention_mask, torch.Tensor) and attention_mask.shape == loss_mask.shape:
+    if (
+        attention_mask is not None
+        and isinstance(attention_mask, torch.Tensor)
+        and attention_mask.shape == loss_mask.shape
+    ):
         loss_mask = loss_mask & attention_mask
 
     return loss_mask
@@ -63,27 +73,46 @@ def replace_bos_eos_batch(batch, tokenizer, text_column="text"):
 
 
 def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
-    print("Tokenizing dataset...")
+    logger.info("Tokenizing dataset...")
     max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
 
     def tokenize_function(example):
         if tokenizer.bos_token != "<s>":
             example = replace_bos_eos_batch(example, tokenizer)
-        tokenized = tokenizer(example["text"], truncation=True, max_length=max_length, padding="max_length", return_tensors='pt')
+        tokenized = tokenizer(
+            example["text"],
+            truncation=True,
+            max_length=max_length,
+            padding="max_length",
+            return_tensors="pt",
+        )
         tokenized["labels"] = tokenized["input_ids"].clone()
         tokenized["completion_mask"] = make_completion_mask(
-            tokenized["input_ids"], 
-            tokenized["attention_mask"], 
+            tokenized["input_ids"],
+            tokenized["attention_mask"],
             special_token_id=tokenizer("I")["input_ids"][0],
             n=1,
         )
         return tokenized
-    print(f"Example before tokenization:", dataset_dict['train'][0] if len(dataset_dict['train']) > 0 else "N/A")
-    if "text" not in dataset_dict['train'].column_names:
-        raise ValueError(f"Dataset does not contain 'text' column. Available columns: {dataset_dict['train'].column_names}")
+
+    logger.debug(
+        "Example before tokenization: %s",
+        dataset_dict["train"][0] if len(dataset_dict["train"]) > 0 else "N/A",
+    )
+    if "text" not in dataset_dict["train"].column_names:
+        raise ValueError(
+            f"Dataset does not contain 'text' column. Available columns: {dataset_dict['train'].column_names}"
+        )
     tokenized_datasets = dataset_dict.map(tokenize_function, batched=True)
-    print("---- Dataset tokenized. ----")
-    print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
+    logger.info("Dataset tokenized.")
+    logger.debug(
+        "Tokenized dataset example: %s",
+        (
+            tokenized_datasets["train"][0]
+            if len(tokenized_datasets["train"]) > 0
+            else "N/A"
+        ),
+    )
     return tokenized_datasets
 
 
@@ -92,14 +121,14 @@ def compute_2DPE_pos_ids(example, tokenizer: AutoTokenizer):
     Computes 2D positional IDs for a given example.
     Not batched
     """
-    format = get_architects_prompt_format(tokenizer)
+    fmt = get_architects_prompt_format(tokenizer)
     input_ids = example["input_ids"]
     x, y = 0, 0
     pos_ids = []
     grid_origin = [0, 0]
-    input_beg_id = tokenizer(format["input_beg"])["input_ids"][0]
-    output_beg_id = tokenizer(format["output_beg"])["input_ids"][0]
-    row_end_id = tokenizer(format["row_end"])["input_ids"][0]
+    input_beg_id = tokenizer(fmt["input_beg"])["input_ids"][0]
+    output_beg_id = tokenizer(fmt["output_beg"])["input_ids"][0]
+    row_end_id = tokenizer(fmt["row_end"])["input_ids"][0]
     is_in_grid = False
     for i in range(len(input_ids)):
         pos_ids.append([x, y])
@@ -113,12 +142,12 @@ def compute_2DPE_pos_ids(example, tokenizer: AutoTokenizer):
         if input_ids[i] == row_end_id and is_in_grid:
             y += 1
             x = grid_origin[0]
-            print(tokenizer.decode(input_ids[i]), end="\n")
+            logger.debug("%s", tokenizer.decode(input_ids[i]))
         elif is_in_grid:
-            print(tokenizer.decode(input_ids[i]), end="")
+            logger.debug("%s", tokenizer.decode(input_ids[i]))
             x += 1
         else:
-            print(tokenizer.decode(input_ids[i]), end="-")
+            logger.debug("%s", tokenizer.decode(input_ids[i]))
             x += 1
             y += 1
     example["position_ids"] = torch.Tensor(pos_ids).long()
@@ -133,14 +162,16 @@ def get_token_mapping(tokenizer: AutoTokenizer):
     """
     vocab = tokenizer.get_vocab()
     token_mapping = []
-    for i in range(10): # digits 0-9
+    for i in range(10):  # digits 0-9
         char = str(i)
         if char in vocab:
             token_mapping.append(vocab[char])
     return token_mapping
 
 
-def tokenize_2DPE_grid(grid, tokenizer: AutoTokenizer, grid_origin=(0,0), digit_mapping=None):
+def tokenize_2DPE_grid(
+    grid, tokenizer: AutoTokenizer, grid_origin=(0, 0), digit_mapping=None
+):
     """
     Computes input IDs and 2D positional IDs for the grid part of a given example.
     Not batched
@@ -160,11 +191,13 @@ def tokenize_2DPE_grid(grid, tokenizer: AutoTokenizer, grid_origin=(0,0), digit_
         y += 1
         if i < len(grid) - 1:
             x = grid_origin[0]
-    grid_end = (x+1, y+1)
+    grid_end = (x + 1, y + 1)
     return input_ids, pos_ids, grid_end
 
 
-def tokenize_example_2DPE(example, tokenizer: AutoTokenizer, digit_mapping=None, input_beg_coord=(0,0)):
+def tokenize_example_2DPE(
+    example, tokenizer: AutoTokenizer, digit_mapping=None, input_beg_coord=(0, 0)
+):
     """
     Tokenizes a single example with 2D positional encoding.
     Not batched
@@ -180,7 +213,7 @@ def tokenize_example_2DPE(example, tokenizer: AutoTokenizer, digit_mapping=None,
     y += 1
 
     input_input_ids, input_pos_ids, (x, y) = tokenize_2DPE_grid(
-        example["input"], tokenizer, grid_origin=(x,y), digit_mapping=digit_mapping
+        example["input"], tokenizer, grid_origin=(x, y), digit_mapping=digit_mapping
     )
     input_ids.extend(input_input_ids)
     position_ids.extend(input_pos_ids)
@@ -190,12 +223,13 @@ def tokenize_example_2DPE(example, tokenizer: AutoTokenizer, digit_mapping=None,
     y += 1
 
     output_input_ids, output_pos_ids, (x, y) = tokenize_2DPE_grid(
-        example["output"], tokenizer, grid_origin=(x,y), digit_mapping=digit_mapping
+        example["output"], tokenizer, grid_origin=(x, y), digit_mapping=digit_mapping
     )
     input_ids.extend(output_input_ids)
     position_ids.extend(output_pos_ids)
 
     return input_ids, position_ids, (x, y)
+
 
 def tokenize_task_2DPE(task, tokenizer: AutoTokenizer, digit_mapping=None):
     """
@@ -209,7 +243,9 @@ def tokenize_task_2DPE(task, tokenizer: AutoTokenizer, digit_mapping=None):
     x, y = 0, 0
 
     preprompt_ids = [fmt["bos_token_id"]] + tokenizer(fmt["preprompt"])["input_ids"]
-    preprompt_pos_ids = np.arange(len(preprompt_ids)).reshape(-1, 1).repeat(2, axis=1).tolist()
+    preprompt_pos_ids = (
+        np.arange(len(preprompt_ids)).reshape(-1, 1).repeat(2, axis=1).tolist()
+    )
     input_ids.extend(preprompt_ids)
     position_ids.extend(preprompt_pos_ids)
     x += len(preprompt_ids)
@@ -217,7 +253,7 @@ def tokenize_task_2DPE(task, tokenizer: AutoTokenizer, digit_mapping=None):
 
     for example in task["train"] + task["test"]:
         ex_input_ids, ex_pos_ids, (x, y) = tokenize_example_2DPE(
-            example, tokenizer, digit_mapping=digit_mapping, input_beg_coord=(x,y)
+            example, tokenizer, digit_mapping=digit_mapping, input_beg_coord=(x, y)
         )
         input_ids.extend(ex_input_ids)
         position_ids.extend(ex_pos_ids)
@@ -236,7 +272,7 @@ def get_grid_from_pos_ids(input_ids, pos_ids):
     """
     max_grid_shape = [34, 34]  # Assuming max grid size
     grid = np.zeros(max_grid_shape, dtype=int)
-    for (input_id, (x, y)) in zip(input_ids, pos_ids):
+    for input_id, (x, y) in zip(input_ids, pos_ids):
         if x < max_grid_shape[0] and y < max_grid_shape[1]:
             grid[y][x] = input_id
     return grid
@@ -246,7 +282,7 @@ def print_grid_from_pos_ids(input_ids, pos_ids, tokenizer):
     """
     Prints a 2D grid from the input IDs and their corresponding position IDs.
     """
-    current_y = 0
+    logger.warning("This function is deprecated. Use dump_grid_from_pos_ids() instead.")
     grid = get_grid_from_pos_ids(input_ids, pos_ids)
     for y in range(len(grid)):
         row_str = ""
@@ -257,16 +293,39 @@ def print_grid_from_pos_ids(input_ids, pos_ids, tokenizer):
         print(row_str)
 
 
-def tokenize_row_2DPE(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding="max_length", truncation=True):
+def dump_grid_from_pos_ids(input_ids, pos_ids, tokenizer):
+    """
+    Dumps a 2D grid from the input IDs and their corresponding position IDs as a string.
+    """
+    output = ""
+    grid = get_grid_from_pos_ids(input_ids, pos_ids)
+    for y in range(len(grid)):
+        row_str = ""
+        for x in range(len(grid[y])):
+            token_id = grid[y][x]
+            token_str = tokenizer.decode([token_id])
+            row_str += token_str
+        output += row_str + "\n"
+    return output
+
+
+def tokenize_row_2DPE(
+    ds_row,
+    tokenizer: AutoTokenizer,
+    max_length=4096,
+    padding="max_length",
+    truncation=True,
+):
     """
     Tokenizes a batch of tasks with 2D positional encoding.
     """
     digit_mapping = get_token_mapping(tokenizer)
 
-
     task = ds_row["task"]
 
-    input_ids, position_ids = tokenize_task_2DPE(task, tokenizer, digit_mapping=digit_mapping)
+    input_ids, position_ids = tokenize_task_2DPE(
+        task, tokenizer, digit_mapping=digit_mapping
+    )
 
     if truncation and len(input_ids) > max_length:
         input_ids = input_ids[:max_length]
@@ -274,8 +333,8 @@ def tokenize_row_2DPE(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding
     elif padding == "max_length" and len(input_ids) < max_length:
         pad_length = max_length - len(input_ids)
         input_ids.extend([tokenizer.pad_token_id] * pad_length)
-        position_ids.extend([[0,0]] * pad_length)
-    
+        position_ids.extend([[0, 0]] * pad_length)
+
     attention_mask = [1 if id != tokenizer.pad_token_id else 0 for id in input_ids]
 
     ds_row["input_ids"] = torch.tensor(input_ids).long()
@@ -285,12 +344,12 @@ def tokenize_row_2DPE(ds_row, tokenizer: AutoTokenizer, max_length=4096, padding
 
 
 def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
-    print("Tokenizing dataset with 2DPE tokenizer...")
+    logger.info("Tokenizing dataset with 2DPE tokenizer...")
     max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
     padding = "max_length"
     truncation = True
 
-    format = get_architects_prompt_format(tokenizer)
+    fmt = get_architects_prompt_format(tokenizer)
 
     def tokenize_function(example):
         tokenized = example
@@ -300,28 +359,45 @@ def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
 
         tokenized["labels"] = tokenized["input_ids"].clone()
         tokenized["completion_mask"] = make_completion_mask(
-            tokenized["input_ids"], 
-            tokenized["attention_mask"], 
+            tokenized["input_ids"],
+            tokenized["attention_mask"],
             special_token_id=tokenizer("I")["input_ids"][0],
             n=1,
         )
         return tokenized
-    tokenized_datasets = dataset_dict.map(tokenize_row_2DPE, fn_kwargs={"max_length": max_length, "tokenizer": tokenizer, "padding": padding, "truncation": truncation}, batched=False)
+
+    tokenized_datasets = dataset_dict.map(
+        tokenize_row_2DPE,
+        fn_kwargs={
+            "max_length": max_length,
+            "tokenizer": tokenizer,
+            "padding": padding,
+            "truncation": truncation,
+        },
+        batched=False,
+    )
     tokenized_datasets = tokenized_datasets.map(tokenize_function, batched=True)
-    print("---- Dataset tokenized with 2DPE tokenizer. ----")
-    print("Tokenized dataset example:", tokenized_datasets['train'][0] if len(tokenized_datasets['train']) > 0 else "N/A")
+    logger.info("Dataset tokenized with 2DPE tokenizer.")
+    logger.debug(
+        "Tokenized dataset example: %s",
+        (
+            tokenized_datasets["train"][0]
+            if len(tokenized_datasets["train"]) > 0
+            else "N/A"
+        ),
+    )
     return tokenized_datasets
 
 
 def frac_dataset_dict(dataset_dict: DatasetDict, frac=0.1, seed=42):
     """
     Returns a fraction of each split in a DatasetDict.
-    
+
     Args:
         dataset_dict (DatasetDict): original dataset
         frac (float): fraction to keep (0 < frac <= 1)
         seed (int): random seed for reproducibility
-    
+
     Returns:
         DatasetDict: fractioned dataset
     """
@@ -334,15 +410,22 @@ def frac_dataset_dict(dataset_dict: DatasetDict, frac=0.1, seed=42):
 
 
 if __name__ == "__main__":
+    import json
     from datasets import load_dataset
     from transformers import AutoTokenizer
 
     from arc_tartiflette.utils import load
 
-    dataset = {"0a938d79":{"train": [{"input": [[0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0], [0, 0, 0, 0, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0, 2, 0, 8, 0]]}, {"input": [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0]]}, {"input": [[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2], [0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 3, 3, 3, 3, 3, 3, 3, 3], [0, 0, 0, 0, 0, 0, 0, 0, 0], [2, 2, 2, 2, 2, 2, 2, 2, 2]]}, {"input": [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 4, 4, 4, 4, 4, 4, 4], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 4, 4, 4, 4, 4, 4, 4], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0], [4, 4, 4, 4, 4, 4, 4, 4]]}], "test": [{"input": [[0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "output": [[0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0], [0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 0]]}]}}
-    # dataset_dict = load_dataset("meo-des/arc_main_fmt_aug")
-    # dataset_dict = DatasetDict({"train": dataset_dict["train"].select(range(1))})
-    dataset_dict = DatasetDict({"train": load.dict_to_transformers_dataset(dataset),})
+    SAMPLE_TASK = "0a938d79"
+    SAMPLE_TASK_PATH = "./data/neoneye/ARC-AGI-1/data/training/0a938d79.json"
+    with open(SAMPLE_TASK_PATH, "r") as f:
+        dataset = {SAMPLE_TASK: json.load(f)}
+
+    dataset_dict = DatasetDict(
+        {
+            "train": load.dict_to_transformers_dataset(dataset),
+        }
+    )
     tokenizer = AutoTokenizer.from_pretrained("meo-des/nemo_arc_main_base_1s2e_m")
 
     tokenized_datasets = tokenize_dataset_2DPE(dataset_dict, tokenizer)
@@ -355,5 +438,9 @@ if __name__ == "__main__":
     # print(tokenizer.decode(3))
     # print(f"Row end id: {get_architects_prompt_format(tokenizer)['row_end_id']}")
     #
-    print(tokenized_datasets['train'][0])
-    print_grid_from_pos_ids(tokenized_datasets['train'][0]['input_ids'], tokenized_datasets['train'][0]['position_ids'], tokenizer)
+    print(tokenized_datasets["train"][0])
+    print_grid_from_pos_ids(
+        tokenized_datasets["train"][0]["input_ids"],
+        tokenized_datasets["train"][0]["position_ids"],
+        tokenizer,
+    )

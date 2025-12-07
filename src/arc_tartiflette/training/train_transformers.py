@@ -1,14 +1,20 @@
+import os
+import logging
+
 from transformers.training_args import TrainingArguments
 from transformers.trainer import Trainer
 import torch
 from datasets import DatasetDict
-import os
+
+logger = logging.getLogger(__name__)
 
 def train_transformers(
         model, 
         tokenized_datasets: DatasetDict, 
         tokenizer,
         output_model="default_output_model",
+        output_path: str=None,
+        push: bool=False,
     ):
     """
     Train a model using the Transformers Trainer API.
@@ -23,11 +29,11 @@ def train_transformers(
 
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
 
-    print(f"---- Starting training with Transformers Trainer ----")
-    print(f"Batch size: {batch_size}\nGradient Accumulation Steps: {gradient_accumulation_steps}\nGradient Checkpointing: {gradient_checkpointing}\nLearning Rate: {learning_rate}\nNum Train Epochs: {num_train_epochs}\nUsing bf16: {use_bf16}")
-    print(f"Gradient Checkpointing Enabled: {gradient_checkpointing}")
-    print(f"Gradient Accumulation Steps: {gradient_accumulation_steps}")
-    print(f"Num Train Epochs: {num_train_epochs}")
+    logger.info("Starting training with Transformers Trainer.")
+    logger.debug(f"Training config: Batch size: {batch_size}, Gradient Accumulation Steps: {gradient_accumulation_steps}, Gradient Checkpointing: {gradient_checkpointing}, Learning Rate: {learning_rate}, Num Train Epochs: {num_train_epochs}, Using bf16: {use_bf16}")
+    logger.debug(f"Gradient Checkpointing Enabled: {gradient_checkpointing}")
+    logger.debug(f"Gradient Accumulation Steps: {gradient_accumulation_steps}")
+    logger.debug(f"Num Train Epochs: {num_train_epochs}")
 
     # Define training arguments using Transformers
     training_args = TrainingArguments(
@@ -62,10 +68,10 @@ def train_transformers(
     )
 
     # Start training
-    print("Train")
+    logger.info("Starting training...")
     trainer.train()
 
     # Eval
-    print("Eval")
+    logger.info("Starting evaluation...")
     results = trainer.evaluate()
-    print(results)
+    logger.info("Evaluation results: %s", results)
