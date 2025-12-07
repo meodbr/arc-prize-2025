@@ -1,18 +1,20 @@
 import os
 import json
+import logging
 from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
 from arc_tartiflette.config import defaults
 
+logger = logging.getLogger(__name__)
 
 def convert_env_var(value, var_type):
     if value == "None":
         return None
     if var_type is bool:
         return value.lower() in ("true", "1", "yes")
-    elif var_type is list[str]:
+    elif var_type == list[str]:
         out = value.split(",")
         if out == ['']:
             return []
