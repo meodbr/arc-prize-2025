@@ -1,8 +1,6 @@
-import logging
-
 from peft import LoraConfig, TaskType
 
-from arc_tartiflette.config.settings import ENV_VARS
+from arc_tartiflette.config.settings import settings
 
 
 class LoraConfigFactory:
@@ -56,16 +54,16 @@ class LoraConfigFactory:
     @staticmethod
     def from_env() -> LoraConfig:
         return LoraConfig(
-            r=ENV_VARS["LORA_R"],
-            lora_alpha=ENV_VARS["LORA_ALPHA"],
-            target_modules=ENV_VARS["LORA_TARGET_MODULES"],
-            lora_dropout=ENV_VARS["LORA_DROPOUT"],
+            r=settings.LORA_R,
+            lora_alpha=settings.LORA_ALPHA,
+            target_modules=settings.LORA_TARGET_MODULES,
+            lora_dropout=settings.LORA_DROPOUT,
             bias="none",
-            use_rslora=ENV_VARS["USE_RSLORA"],
+            use_rslora=settings.USE_RSLORA,
             task_type=TaskType.CAUSAL_LM,
             modules_to_save=(
-                ENV_VARS["LORA_MODULES_TO_SAVE"]
-                if len(ENV_VARS["LORA_MODULES_TO_SAVE"]) > 0
+                settings.LORA_MODULES_TO_SAVE
+                if len(settings.LORA_MODULES_TO_SAVE) > 0
                 else None
             ),
         )
