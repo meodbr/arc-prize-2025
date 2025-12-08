@@ -40,6 +40,9 @@ def refresh_env_vars():
 
 def get_logging_config():
     log_config_path = os.environ.get("LOGGING_CONFIG_PATH", "configs/logging.json")
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
+
     with open(log_config_path, "r") as f:
         return json.load(f)
 

@@ -1,3 +1,5 @@
+from typing import Callable
+
 import huggingface_hub as hf
 import os
 
@@ -34,5 +36,13 @@ def hf_login():
     if os.environ.get("HUGGING_FACE_TOKEN", None) is not None:
         hf.login(token=os.environ.get("HUGGING_FACE_TOKEN"))
 
+def requires_hf_login(func: Callable):
+    logged_in = False
+    def wrapper(*args, **kwargs):
+        nonlocal logged_in
+        if not logged_in:
+            hf_login()
+            logged_in = True
+        return func(*args, **kwargs)
 
-hf_login()
+    return wrapper

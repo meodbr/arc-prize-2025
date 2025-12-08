@@ -11,29 +11,18 @@ from datasets import (
     load_dataset,
 )
 from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
     pipeline,
-    BitsAndBytesConfig,
 )
 
 from arc_tartiflette.model import tokenizer_tools
-from arc_tartiflette.model.quantization import print_quantization_info
 from arc_tartiflette.utils import utils, constants, gpu_availability, load
-from arc_tartiflette.training.train_transformers import train_transformers
 from arc_tartiflette.training.train_trl import train_trl
 from arc_tartiflette.config.settings import settings, get_logging_config
 from arc_tartiflette.inference.solvers.lm import LMSolver
 from arc_tartiflette.inference.solvers.conv_embedding import ConvEmbeddingSolver
-from arc_tartiflette.model.custom_pe import CustomMistralModel2DPE
 from arc_tartiflette.model import ModelBuilder
-from arc_tartiflette.model.conv_embeddings import (
-    CustomMistralModelConvEmbedding,
-    tokenize_dataset_conv,
-)
 from arc_tartiflette.model.tokenize_functions import (
     tokenize_dataset_base,
-    tokenize_dataset_2DPE,
     frac_dataset_dict,
 )
 
