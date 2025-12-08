@@ -5,7 +5,7 @@ from transformers import AutoTokenizer
 from datasets import DatasetDict
 import numpy as np
 
-from arc_tartiflette.config.settings import ENV_VARS
+from arc_tartiflette.config.settings import settings
 from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def replace_bos_eos_batch(batch, tokenizer, text_column="text"):
 
 def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
     logger.info("Tokenizing dataset...")
-    max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
+    max_length = settings.TOKENIZER_MAX_LENGTH
 
     def tokenize_function(example):
         if tokenizer.bos_token != "<s>":
@@ -345,7 +345,7 @@ def tokenize_row_2DPE(
 
 def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
     logger.info("Tokenizing dataset with 2DPE tokenizer...")
-    max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
+    max_length = settings.TOKENIZER_MAX_LENGTH
     padding = "max_length"
     truncation = True
 

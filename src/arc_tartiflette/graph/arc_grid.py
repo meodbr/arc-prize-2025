@@ -94,7 +94,7 @@ class ArcGrid(Grid):
     
 
     def assign_value(self, node: Node, value):
-        assert self.generated == True
+        assert self.generated, "Can only assign values in generated ArcGrids"
         x, y = node.grid_position
         if x > 0 and y > 0 and value == -1: # If we are assigning a non trivial wall
             self._prune_out_of_bounds([x, y])
@@ -190,11 +190,11 @@ class ArcGrid(Grid):
             "labels": torch.tensor(reformatted["labels"], dtype=torch.long),
         }
 
-from transformers import AutoTokenizer
 if __name__ == "__main__":
+    from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained("meo-des/nemo_arc_main_base_1s5e_m")
     DEFAULT_ARC_TOKEN_MAPPING = get_default_arc_token_mapping(tokenizer)
-    print(f"Default ARC token mapping:", DEFAULT_ARC_TOKEN_MAPPING)
+    print(f"Default ARC token mapping: {DEFAULT_ARC_TOKEN_MAPPING}")
     grid_data = [
         [0, 0, 0, 1, 0],
         [1, 0, 1, 0, 0],

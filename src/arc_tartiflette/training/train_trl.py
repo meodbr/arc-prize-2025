@@ -6,7 +6,7 @@ import torch
 
 from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
 from arc_tartiflette.model.custom_pe import CustomCompletionMaskDataCollator
-from arc_tartiflette.config.settings import ENV_VARS
+from arc_tartiflette.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def train_trl(
     fmt = get_architects_prompt_format(tokenizer)
 
     if use_custom_data_collator is None: 
-        use_custom_data_collator = ENV_VARS["MODEL_TYPE"] in ["2DPE", "conv"]
+        use_custom_data_collator = settings.MODEL_TYPE in ["2DPE", "conv"]
 
     if output_path is None:
         output_path = f"./data/models/{output_model}"
@@ -32,18 +32,18 @@ def train_trl(
     # Define training arguments using TRL's SFTConfig
     training_args = SFTConfig(
         output_dir=output_path,
-        num_train_epochs=ENV_VARS["TRAIN_EPOCHS"],
-        max_steps=ENV_VARS["TRAIN_STEPS"],
-        per_device_train_batch_size=ENV_VARS["BATCH_SIZE"],
-        per_device_eval_batch_size=ENV_VARS["BATCH_SIZE"],
-        gradient_accumulation_steps=ENV_VARS["GRAD_ACC_STEPS"],
+        num_train_epochs=settings.TRAIN_EPOCHS,
+        max_steps=settings.TRAIN_STEPS,
+        per_device_train_batch_size=settings.BATCH_SIZE,
+        per_device_eval_batch_size=settings.BATCH_SIZE,
+        gradient_accumulation_steps=settings.GRAD_ACC_STEPS,
         save_strategy="epoch",
         logging_steps=50,
-        learning_rate=ENV_VARS["LR"],
-        warmup_ratio=ENV_VARS["WARMUP_RATIO"],
-        lr_scheduler_type=ENV_VARS["LR_SCHEDULER_TYPE"],
-        weight_decay=ENV_VARS["WEIGHT_DECAY"],
-        optim=ENV_VARS["OPTIM"],
+        learning_rate=settings.LR,
+        warmup_ratio=settings.WARMUP_RATIO,
+        lr_scheduler_type=settings.LR_SCHEDULER_TYPE,
+        weight_decay=settings.WEIGHT_DECAY,
+        optim=settings.OPTIM,
         report_to="none",
         push_to_hub=push,
         remove_unused_columns=not use_custom_data_collator,
