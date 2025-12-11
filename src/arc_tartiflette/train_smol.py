@@ -20,59 +20,10 @@ from arc_tartiflette.training.train_trl import train_trl
 from arc_tartiflette.config.settings import settings, get_logging_config
 from arc_tartiflette.inference.solvers.lm import LMSolver
 from arc_tartiflette.inference.solvers.conv_embedding import ConvEmbeddingSolver
+from arc_tartiflette.dataset.builder import DatasetBuilder
 from arc_tartiflette.model import ModelBuilder
-from arc_tartiflette.model.tokenize_functions import (
-    tokenize_dataset_base,
-    frac_dataset_dict,
-)
 
 logger = logging.getLogger(__name__)
-
-
-def get_dataset(dataset_id: str):
-    hf_dataset = load_dataset(dataset_id)
-    dataset_dict = DatasetDict(
-        {
-            "train": hf_dataset["train"],
-            "eval": hf_dataset["eval"],
-            "test": hf_dataset["test"],
-        }
-    )
-    logger.info("Dataset %s loaded.", dataset_id)
-    frac = settings.DATASET_FRAC
-    if frac != 1.0:
-        return frac_dataset_dict(dataset_dict, frac)
-    return dataset_dict
-
-
-def augment_dataset(dataset, tokenizer, only_splits: list = None):
-    logger.info(
-        "Augmenting dataset (has %d training examples)...", len(dataset["train"])
-    )
-    new_dataset = {}
-    for split, data in dataset.items():
-        if only_splits and split not in only_splits:
-            new_dataset[split] = data
-            continue
-        logger.info("Augmenting split '%s' with %d examples...", split, len(data))
-        new_dataset[split] = load.augment_transformers_dataset(
-            data,
-            fmt=tokenizer_tools.get_architects_prompt_format(tokenizer),
-            multipliers={
-                "color": settings.AUG_COLOR_NUM,
-                "order": settings.AUG_ORDER_NUM,
-            }
-        )
-        logger.info(
-            "Augmented split '%s' now has %d examples.",
-            split,
-            len(new_dataset[split]),
-        )
-    logger.info(
-        "Dataset now has %d training examples after augmentation.",
-        len(new_dataset["train"]),
-    )
-    return DatasetDict(new_dataset)
 
 
 def print_before_training_info(model, tokenized_datasets, use_bf16):
@@ -191,7 +142,7 @@ def train(
         .from_hf(model_name)
         .set_custom_class("base")
         .with_quantization(4)
-        .with_lora(use_lora=True, config="env")
+        .with_lora(config="env")
         .with_untied_lm_head()
         .shrink_tokenizer_vocab()
         .build()
@@ -199,19 +150,20 @@ def train(
 
     # ---- DATASET ----
     dataset_id = f"{constants.HF_USER}/{settings.HF_DATASET}"
-    dataset_dict = get_dataset(dataset_id)
-
-    # ---- PREPROCESS ----
-    if settings.DO_AUG:
-        dataset_dict = augment_dataset(dataset_dict, tokenizer)
-    tokenized_datasets = tokenize_dataset_base(dataset_dict, tokenizer)
+    dataset_dict = (
+        DatasetBuilder()
+        .from_hf(dataset_id)
+        .only_frac(settings.DATASET_FRAC)
+        .tokenized(tokenizer, for_custom_class="base")
+        .build()
+    )
 
     # ---- TRAIN ----
     use_bf16 = torch.cuda.is_bf16_supported() if torch.cuda.is_available() else False
-    print_before_training_info(model, tokenized_datasets, use_bf16)
+    print_before_training_info(model, dataset_dict, use_bf16)
     train_trl(
         model,
-        tokenized_datasets,
+        dataset_dict,
         tokenizer,
         output_model= settings.HF_OUTPUT_MODEL,
         use_custom_data_collator=False,

@@ -389,25 +389,6 @@ def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
     return tokenized_datasets
 
 
-def frac_dataset_dict(dataset_dict: DatasetDict, frac=0.1, seed=42):
-    """
-    Returns a fraction of each split in a DatasetDict.
-
-    Args:
-        dataset_dict (DatasetDict): original dataset
-        frac (float): fraction to keep (0 < frac <= 1)
-        seed (int): random seed for reproducibility
-
-    Returns:
-        DatasetDict: fractioned dataset
-    """
-    small_splits = {}
-    for split_name, ds in dataset_dict.items():
-        # train_test_split returns a dict with 'train' and 'test'
-        small_ds = ds.train_test_split(test_size=frac, seed=seed)["test"]
-        small_splits[split_name] = small_ds
-    return DatasetDict(small_splits)
-
 
 if __name__ == "__main__":
     import json
