@@ -110,7 +110,7 @@ class DatasetBuilder:
 
         use_arc_public_eval_only_in_test = True
         if self.use_arc_public_eval:
-            dict_ds_eval = load.load_challenges_neoneye_format(path_tuples=[("ARC-AGI-2", "evaluation")], neoneye_dir=neoneye_dir)
+            dict_ds_eval = load.load_challenges_neoneye_format(path_tuples=[("ARC-AGI-2", "evaluation")], neoneye_dir=self.neoneye_dir)
             ds_eval = next(iter(dict_ds_eval.values()))
             logger.debug("  Adding ARC Public Evaluation dataset with %s tasks.", len(ds_eval))
             hf_ds_eval = load.dict_to_transformers_dataset(ds_eval, format)
