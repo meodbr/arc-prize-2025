@@ -5,7 +5,7 @@ import os
 
 from arc_tartiflette.utils import load, utils, constants
 from arc_tartiflette.model import tokenizer_tools
-from arc_tartiflette.model.tokenize_functions import tokenize_dataset_base
+from arc_tartiflette.dataset.tokenize_functions import tokenize_dataset_base
 from arc_tartiflette.train import shrink_vocab
 
 def kaggle_flatten_and_push(input_dir):

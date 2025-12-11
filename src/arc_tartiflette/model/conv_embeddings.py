@@ -19,9 +19,9 @@ from arc_tartiflette.model.custom_pe import (
     CustomCompletionMaskDataCollator,
 )
 from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
-from arc_tartiflette.model.tokenize_functions import make_completion_mask
+from arc_tartiflette.dataset.tokenize_functions import make_completion_mask
 from arc_tartiflette.graph.arc_grid import get_default_arc_token_mapping, ArcGrid
-from arc_tartiflette.config.settings import ENV_VARS
+from arc_tartiflette.dataset.tokenizer_utils import pad_and_truncate, pad_and_truncate_batch
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +258,7 @@ def tokenize_conv_task(task: dict, tokenizer: PreTrainedTokenizerFast, prompt=Fa
 def tokenize_row_conv(
     ds_row,
     tokenizer: AutoTokenizer,
-    max_length=4096,
+    max_length,
     padding="max_length",
     truncation=True,
 ):
@@ -270,46 +270,36 @@ def tokenize_row_conv(
 
     tokenized = tokenize_conv_task(task, tokenizer)
 
-    if truncation and len(tokenized["input_ids"]) > max_length:
-        tokenized["input_ids"] = tokenized["input_ids"][:max_length]
-        tokenized["position_ids"] = tokenized["position_ids"][:max_length]
-        tokenized["labels"] = tokenized["labels"][:max_length]
-    elif padding == "max_length" and len(tokenized["input_ids"]) < max_length:
-        pad_length = max_length - len(tokenized["input_ids"])
+    logger.debug("Tokenized row before padding/truncation: %s", tokenized)
 
-        tokenized["input_ids"] = torch.cat(
-            [
-                tokenized["input_ids"],
-                torch.tensor(
-                    [[tokenizer.pad_token_id] * 8] * pad_length, dtype=torch.long
-                ),
-            ],
-            dim=0,
-        )
-        tokenized["position_ids"] = torch.cat(
-            [
-                tokenized["position_ids"],
-                torch.tensor([[0, 0]] * pad_length, dtype=torch.long),
-            ],
-            dim=0,
-        )
-        tokenized["labels"] = torch.cat(
-            [tokenized["labels"], torch.tensor([-100] * pad_length, dtype=torch.long)],
-            dim=0,
-        )
+    # Pad and truncate input_ids, position_ids, labels
+    pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
+    pad_input_id = torch.full((8,), pad_token_id, dtype=torch.long)
+    pad_position_id = torch.full((2,), 0, dtype=torch.long)
 
-    attention_mask = [1 if id != -100 else 0 for id in tokenized["labels"]]
-
-    ds_row["input_ids"] = torch.tensor(tokenized["input_ids"]).long()
-    ds_row["position_ids"] = torch.tensor(tokenized["position_ids"]).long()
-    ds_row["attention_mask"] = torch.tensor(attention_mask).long()
-    ds_row["labels"] = torch.tensor(tokenized["labels"]).long()
+    ds_row["input_ids"] = pad_and_truncate(
+        tokenized["input_ids"], 
+        max_length=max_length, 
+        pad_value=pad_input_id,
+    )
+    ds_row["position_ids"] = pad_and_truncate(
+        tokenized["position_ids"],
+        max_length=max_length,
+        pad_value=pad_position_id,
+    )
+    ds_row["labels"] = pad_and_truncate(
+        tokenized["labels"],
+        max_length=max_length, 
+        pad_value=-100,
+    )
+    ds_row["attention_mask"] = torch.where(ds_row["labels"] != -100, 1, 0)
     return ds_row
 
 
-def tokenize_dataset_conv(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
+def tokenize_dataset_conv(dataset_dict: DatasetDict, tokenizer: AutoTokenizer, max_length=None):
     logger.info("Tokenizing dataset with Conv tokenizer...")
-    max_length = ENV_VARS["TOKENIZER_MAX_LENGTH"]
+    if max_length is None:
+        max_length = tokenizer.model_max_length
     padding = "max_length"
     truncation = True
 

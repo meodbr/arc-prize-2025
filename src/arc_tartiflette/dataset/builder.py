@@ -10,7 +10,7 @@ from datasets import (
 from arc_tartiflette.dataset.augment import augment_dataset
 from arc_tartiflette.utils import constants, load
 from arc_tartiflette.model.tokenizer_tools import get_architects_prompt_format
-from arc_tartiflette.model.tokenize_functions import (
+from arc_tartiflette.dataset.tokenize_functions import (
     tokenize_dataset_base,
     tokenize_dataset_2DPE,
 )
@@ -75,10 +75,11 @@ class DatasetBuilder:
         self.seed = seed
         return self
     
-    def tokenized(self, tokenizer: PreTrainedTokenizer, for_custom_class: str = "base"):
+    def tokenized(self, tokenizer: PreTrainedTokenizer, for_custom_class: str = "base", max_length: int | None = None):
         self.do_tokenize = True
         self.tokenizer = tokenizer
         self.tokenization_custom_class = for_custom_class
+        self.tokenization_max_length = max_length
         if self.prompt_fmt == constants.DEFAULT_PROMPT_FORMAT:
             self.prompt_fmt = get_architects_prompt_format(tokenizer)
         return self
@@ -173,11 +174,11 @@ class DatasetBuilder:
         ds = None
         match self.tokenization_custom_class:
             case "base":
-                ds = tokenize_dataset_base(dataset, self.tokenizer)
+                ds = tokenize_dataset_base(dataset, self.tokenizer, self.tokenization_max_length)
             case "2DPE":
-                ds = tokenize_dataset_2DPE(dataset, self.tokenizer)
+                ds = tokenize_dataset_2DPE(dataset, self.tokenizer, self.tokenization_max_length)
             case "conv":
-                ds = tokenize_dataset_conv(dataset, self.tokenizer)
+                ds = tokenize_dataset_conv(dataset, self.tokenizer, self.tokenization_max_length)
             case default:
                 raise ValueError(f"Wrong custom class to tokenize dataset: {default}")
 
@@ -203,8 +204,3 @@ class DatasetBuilder:
         if self.do_tokenize:
             dataset = self._build_tokenized_dataset(dataset)
         return dataset
-        
-            
-
-
-# Previous code for reference

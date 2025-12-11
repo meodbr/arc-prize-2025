@@ -27,3 +27,4 @@ sft_output
 build
 *.tar
 *.tar.gz
+*.dat

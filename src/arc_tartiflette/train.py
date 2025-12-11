@@ -31,7 +31,7 @@ from arc_tartiflette.model.conv_embeddings import (
     CustomMistralModelConvEmbedding,
     tokenize_dataset_conv,
 )
-from arc_tartiflette.model.tokenize_functions import (
+from arc_tartiflette.dataset.tokenize_functions import (
     tokenize_dataset_base,
     tokenize_dataset_2DPE,
     frac_dataset_dict,
