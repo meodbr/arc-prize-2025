@@ -72,9 +72,8 @@ def replace_bos_eos_batch(batch, tokenizer, text_column="text"):
     return batch
 
 
-def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
+def tokenize_dataset_base(dataset_dict: DatasetDict, tokenizer: AutoTokenizer, max_length: int = 4096):
     logger.info("Tokenizing dataset...")
-    max_length = settings.TOKENIZER_MAX_LENGTH
 
     def tokenize_function(example):
         if tokenizer.bos_token != "<s>":
@@ -343,9 +342,8 @@ def tokenize_row_2DPE(
     return ds_row
 
 
-def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer):
+def tokenize_dataset_2DPE(dataset_dict: DatasetDict, tokenizer: AutoTokenizer, max_length: int = 4096):
     logger.info("Tokenizing dataset with 2DPE tokenizer...")
-    max_length = settings.TOKENIZER_MAX_LENGTH
     padding = "max_length"
     truncation = True
 
