@@ -60,7 +60,7 @@ I currently explore three main variants:
    - Tweaked RoPe positionnal encoding
 
 3. **Convolutional Embeddings (ConvEmbedding)**
-   - This gives the spatial context needed for heighboorhood-Causal generation
+   - This gives the spatial context needed for neighborhood-Causal generation
    - Works by changing the transformer's embedding level (Neighboors embedding instead of previous/left token embedding)
    - Designed to better match grid locality
 
