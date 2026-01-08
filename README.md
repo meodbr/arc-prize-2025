@@ -1,66 +1,125 @@
-# Arc prize 2025
+# ARC Prize 2025 — Neighborhood-Causal Grid Models
 
-ARC prize is a data science contest working towards AGI (Artificial General Intelligence)
+This repository contains my ongoing experiments for the **ARC Prize 2025**, a data science competition inspired by François Chollet’s work on measuring intelligence and abstract reasoning.
 
-François Chollet "On the measure of intelligence" : https://arxiv.org/abs/1911.01547
+- ARC Prize website: https://arcprize.org/
+- Reference paper: *On the Measure of Intelligence* — François Chollet  
+  https://arxiv.org/abs/1911.01547
 
-Website : https://arcprize.org/
+This is a **personal research project**, focused on architectural ideas rather than leaderboard optimization.
 
-## Non causal transformer approach
+---
 
-The most used and most promising approach to this day on ARC has been LLM finetuning with Test Time Training
-My goal is to attempt this approach using a non-causal mask during transformer attention.
+## Motivation
 
-Why? From my point of view:
-* The main source of error in the LLM approach is being forced to predict pixels in writing order (left->right, top->down)
-* I just want to try it !
+Most strong ARC approaches today rely on **large language models fine-tuned with Test-Time Training (TTT)**. These models treat ARC grids as sequences of tokens and generate outputs in a **fixed writing order** (left → right, top → bottom).
 
-## TODO list
+From my perspective, this is a major mismatch with the structure of ARC tasks:
+
+- ARC grids are **2D objects**, not 1D sequences
+- Reasoning often propagates **spatially**, not linearly
+- Writing order introduces arbitrary causal constraints
+
+### Core hypothesis
+
+> A significant source of error in LLM-based ARC solvers comes from forcing a **1D autoregressive order** onto a **2D problem**.
+
+This project explores **2D-aware causal generation** as an alternative.
+
+---
+
+## Model idea (high-level)
+
+Instead of predicting pixels strictly in raster order, I experiment with a **neighborhood-causal autoregressive model**:
+
+- The grid is treated as a graph
+- A cell can be generated once **any of its neighbors** (top, bottom, left, right) has been generated
+- At each step, the model predicts **any valid frontier cell** -> We must decide which
+- The dependency graph is a **dynamic oriented graph**, induced by generation order
+
+This preserves:
+- Causality (no future leakage)
+- Autoregressive generation
+- Flexibility in spatial reasoning
+
+While this is not a full departure from language-model style decoding, it relaxes the strongest constraint: **a single fixed writing direction**.
+
+---
+
+## Implementation directions
+
+I currently explore three main variants:
+
+1. **Base model** : Reproducing the 2024 winning arc solution ([ARChitects](https://github.com/da-fr/arc-prize-2024))
+   - Standard token embeddings
+   - Completion masking
+   - Batched inference
+
+2. **2D Positional Encoding (2DPE)**
+   - Tokenizer wrapper with 2D positional information
+   - Tweaked RoPe positionnal encoding
+
+3. **Convolutional Embeddings (ConvEmbedding)**
+   - This gives the spatial context needed for heighboorhood-Causal generation
+   - Works by changing the transformer's embedding level (Neighboors embedding instead of previous/left token embedding)
+   - Designed to better match grid locality
+
+---
+
+## Current TODO / Roadmap
 
 ### New implementation
 
-- [x] Completion mask for base
-- [x] Lora Merge
+- [x] Completion mask (base)
+- [x] LoRA merge
 - [x] Base batch inference
-
-- [ ] TTT Backbone
-- [ ] Implement tokenizer wrapper for 2DPE
+- [x] TTT backbone
+- [x] Tokenizer wrapper for 2DPE
 - [ ] 2DPE batch inference
-- [x] Inference from hf dataset
-- [x] Test after train
+- [x] Inference from HF datasets
+- [x] Test-after-train pipeline
 
-- [ ] Create embeddings for ConvEmbedding
-- [ ] Tweak embedding layer for ConvEmbedding
-- [ ] Create tokenizer wrapper base for ConvEmbedding
-- [ ] Attention Mask for ConvEmbedding
-- [ ] Completion Mask for ConvEmbedding
-- [ ] Convembedding inference
+- [x] ConvEmbedding embeddings
+- [x] ConvEmbedding embedding layer tweaks
+- [x] ConvEmbedding tokenizer wrapper
+- [x] ConvEmbedding inference
+
+---
 
 ### Training
 
-- [x] Train smol model shrinked embeddings
-- [x] Train Big model Base
+- [x] Smol model (reduced embeddings)
+- [x] Big base model
+- [x] Base TTT (Kaggle)
+- [x] Larger context experiments
+- [x] Hyperparameter tuning
+- [x] Debug 2DPE
+- [ ] Train smol 2DPE
+- [ ] Train big 2DPE
 
-- [ ] Base TTT kaggle
-- [x] Test bigger context
-- [ ] Tweak Hyperparams
-- [ ] Debug 2DPE
-- [ ] Train smol model 2DPE
-- [ ] Train Big model 2DPE
+- [x] Q-8 evaluation
+- [x] Q-4 evaluation
+- [ ] Train smol ConvEmbedding
+- [x] Train big ConvEmbedding
+- [ ] ConvEmbedding TTT (Kaggle)
 
-- [ ] Test Q-8
-- [ ] Test Q-4
-- [ ] Train smol model ConvEmbedding
-- [ ] Train Big model ConvEmbedding
-- [ ] ConvEmbedding TTT kaggle
+- [ ] xFormers flash-attention training
+- [ ] xFormers flash-attention TTT (Kaggle)
 
-- [ ] xformers flash attention training
-- [ ] xformers flash attention TTT kaggle
+---
 
-## Submissions objectives
+## Status & disclaimer
 
-- Thursday: Big base + batched base, TTT?
-- Friday: Big 2DPE + TTT, batched 2DPE? 
-- Saturday: Big ConvEmbedding + TTT, inference...
-- Sunday: Big ConvEmbedding flash att + TTT, inference...
-- Monday: Fine-grained
+This project is:
+- Experimental
+- Iterative
+- Very much a work in progress
+
+Some ideas may fail, some implementations may be scrapped, and results are not guaranteed to be competitive. The goal is to **learn what kinds of causal structures actually help on ARC**, not to claim a finished solution.
+
+If you’re interested in:
+- 2D-aware autoregressive models
+- Alternatives to raster-scan generation
+- ARC-specific architectural biases
+
+…then this repo might be useful.
