@@ -158,8 +158,21 @@ class ArcGrid(Grid):
             grid_str += row_str + "\n"
         return grid_str
 
+    def _sample_node(self, nodes: list[Node], w_n=0., w_c=0.):
+        weights = []
+        for node in nodes:
+            coef = 1.
+            visited_nei = [no for no in node.get_visible_neighbors() if no is not None]
+            same_col_nei = [no for no in visited_nei if no.value == node.value]
+            coef += w_n*len(visited_nei)
+            coef += w_c*len(same_col_nei)
+            weights.append(coef)
+        
+        print(weights)
+        selected_node = random.choices(nodes, weights, k=1)[0]
+        return selected_node
 
-    def random_exploration(self):
+    def random_exploration(self, w_n=0., w_c=0.):
         """
         Perform a random exploration of the grid starting from the start node.
         Returns a list of tokenized nodes in the order they were visited.
@@ -167,7 +180,7 @@ class ArcGrid(Grid):
         explorable = self.get_explorable_nodes()
 
         while len(explorable) > 0:
-            next_node = random.choice(explorable)
+            next_node = self._sample_node(explorable, w_n=w_n, w_c=w_c)
             assert next_node and not next_node.visited, "Next node must be unvisited and valid"
             self.mark_node_visited(next_node)
             explorable = self.get_explorable_nodes()
