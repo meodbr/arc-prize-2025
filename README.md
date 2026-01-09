@@ -22,12 +22,12 @@ From my perspective, this is a major mismatch with the structure of ARC tasks:
 
 <div style="display: flex; gap: 20px; align-items: flex-start;">
 
-  <figure>
+  <figure style="display: flex; flex-direction: column; align-items: center;">
     <img src="docs/assets/random_pause.gif" height="200">
     <figcaption>Classic LLM inference</figcaption>
   </figure>
 
-  <figure>
+  <figure style="display: flex; flex-direction: column; align-items: center;">
     <img src="docs/assets/coef_10000_pause_v2.gif" height="200">
     <figcaption>Neighborhood-Causal inference</figcaption>
   </figure>
