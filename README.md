@@ -20,6 +20,20 @@ From my perspective, this is a major mismatch with the structure of ARC tasks:
 - Reasoning often propagates **spatially**, not linearly
 - Writing order introduces arbitrary causal constraints
 
+<div style="display: flex; gap: 20px; align-items: flex-start;">
+
+  <figure>
+    <img src="docs/assets/random_pause.gif" height="200">
+    <figcaption>Classic LLM inference</figcaption>
+  </figure>
+
+  <figure>
+    <img src="docs/assets/coef_10000_pause_v2.gif" height="200">
+    <figcaption>Neighborhood-Causal inference</figcaption>
+  </figure>
+
+</div>
+
 ### Core hypothesis
 
 > A significant source of error in LLM-based ARC solvers comes from forcing a **1D autoregressive order** onto a **2D problem**.
